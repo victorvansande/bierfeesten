@@ -1,0 +1,297 @@
+/* Herentalse Bierfeesten: live bierteller.
+ *
+ * Eén Cloudflare Worker + één Durable Object per editie ("Telling").
+ * Het Durable Object is de enige bron van waarheid: het bewaart elke
+ * bestelling in SQLite (idempotent op id), houdt de totalen in het geheugen
+ * en duwt de stand via WebSockets naar alle kijkers.
+ *
+ *   GET  /api/stand          stand als JSON (publiek, alleen lezen)
+ *   GET  /api/live           WebSocket, stuurt de stand bij elke wijziging (alleen lezen)
+ *   POST /api/kassa          invoer vanuit het kassasysteem (Bearer KASSA_TOKEN)
+ *   GET  /api/gezondheid     eenvoudige check voor monitoring
+ *
+ * Het invoerformaat staat beschreven in KOPPELING.md.
+ */
+
+const MAX_BATCH = 500;
+const MAX_ML_PER_STUK = 5000;     // 5 L: alles daarboven is bijna zeker een tikfout
+const MAX_AANTAL = 200;
+const RECENT = 12;                 // laatste bestellingen in de stand
+const EMMER_MS = 5 * 60 * 1000;    // emmers van 5 minuten voor het verloop
+const EMMERS = 48;                 // 4 uur verloop
+const UITZEND_MS = 300;            // hoogstens ~3 uitzendingen per seconde
+
+export default {
+  async fetch(req, env) {
+    const url = new URL(req.url);
+    if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(req);
+
+    if (req.method === 'OPTIONS') return new Response(null, { headers: cors() });
+    if (url.pathname === '/api/gezondheid') return json({ ok: true, editie: env.EDITIE });
+
+    const editie = (url.searchParams.get('editie') || env.EDITIE || 'test').slice(0, 20);
+    const stub = env.TELLING.get(env.TELLING.idFromName(editie));
+    return stub.fetch(req);
+  }
+};
+
+export class Telling {
+  constructor(ctx, env) {
+    this.ctx = ctx;
+    this.env = env;
+    this.sql = ctx.storage.sql;
+    this.uitzendTimer = null;
+    ctx.blockConcurrencyWhile(async () => {
+      this.sql.exec(`CREATE TABLE IF NOT EXISTS bestelling (
+        id TEXT PRIMARY KEY,
+        tafel TEXT,
+        ml INTEGER NOT NULL,
+        product TEXT,
+        ts INTEGER NOT NULL,
+        ontvangen INTEGER NOT NULL,
+        storno INTEGER NOT NULL DEFAULT 0
+      )`);
+      this.sql.exec('CREATE INDEX IF NOT EXISTS bestelling_ts ON bestelling(ts)');
+      this.herbereken();
+    });
+  }
+
+  /* Totalen volledig opnieuw opbouwen uit de database (bij opstart). */
+  herbereken() {
+    this.tafels = {};
+    this.zonderTafel = 0;
+    this.totaal = 0;
+    this.aantal = 0;
+    for (const r of this.sql.exec(`SELECT tafel, SUM(ml) AS ml, SUM(CASE WHEN product = 'standcorrectie' THEN 0 ELSE 1 END) AS n, MAX(ts) AS laatst FROM bestelling WHERE storno = 0 GROUP BY tafel`)) {
+      this.boekTotaal(r.tafel, r.ml, r.n, r.laatst);
+    }
+    this.recent = [...this.sql.exec(`SELECT id, tafel, ml, product, ts FROM bestelling WHERE storno = 0 AND ml > 0 AND product IS NOT 'standcorrectie' ORDER BY ts DESC LIMIT ${RECENT}`)]
+      .map(r => ({ id: r.id, t: r.tafel, ml: r.ml, p: r.product, ts: r.ts }));
+    this.emmers = new Map();
+    const vanaf = Date.now() - EMMERS * EMMER_MS;
+    for (const r of this.sql.exec('SELECT (ts / ?) AS e, SUM(ml) AS ml FROM bestelling WHERE storno = 0 AND ts >= ? GROUP BY e', EMMER_MS, vanaf)) {
+      this.emmers.set(Math.floor(r.e) * EMMER_MS, r.ml);
+    }
+    this.bijgewerkt = Date.now();
+  }
+
+  boekTotaal(tafel, ml, n, ts) {
+    if (tafel == null) this.zonderTafel += ml;
+    else {
+      const t = this.tafels[tafel] || (this.tafels[tafel] = { ml: 0, n: 0, laatst: 0 });
+      t.ml += ml; t.n += n;
+      if (ts > t.laatst) t.laatst = ts;
+    }
+    this.totaal += ml;
+    this.aantal += n;
+  }
+
+  boek(b) {
+    this.boekTotaal(b.tafel, b.ml, b.correctie ? 0 : 1, b.ts);
+    const e = Math.floor(b.ts / EMMER_MS) * EMMER_MS;
+    this.emmers.set(e, (this.emmers.get(e) || 0) + b.ml);
+    if (b.ml > 0 && !b.correctie) {
+      this.recent.unshift({ id: b.id, t: b.tafel, ml: b.ml, p: b.product, ts: b.ts });
+      this.recent.length = Math.min(this.recent.length, RECENT);
+    }
+  }
+
+  stand() {
+    const nu = Date.now();
+    const begin = Math.floor(nu / EMMER_MS) * EMMER_MS - (EMMERS - 1) * EMMER_MS;
+    const verloop = [];
+    for (let e = begin; e <= nu; e += EMMER_MS) verloop.push(this.emmers.get(e) || 0);
+    for (const k of this.emmers.keys()) if (k < begin) this.emmers.delete(k);
+    return {
+      v: 1,
+      editie: this.env.EDITIE,
+      totaal_ml: this.totaal,
+      zonder_tafel_ml: this.zonderTafel,
+      bestellingen: this.aantal,
+      tafels: this.tafels,
+      recent: this.recent.map(({ id, ...r }) => r),
+      verloop: { emmer_ms: EMMER_MS, begin, ml: verloop },
+      bijgewerkt: this.bijgewerkt,
+      server_tijd: nu
+    };
+  }
+
+  async fetch(req) {
+    const url = new URL(req.url);
+    switch (url.pathname) {
+      case '/api/stand':
+        return json(this.stand(), { 'cache-control': 'no-store' });
+      case '/api/live': {
+        if (req.headers.get('Upgrade') !== 'websocket') return json({ fout: 'Verwacht een WebSocket.' }, {}, 426);
+        const [klant, server] = Object.values(new WebSocketPair());
+        this.ctx.acceptWebSocket(server);
+        server.send(JSON.stringify({ type: 'stand', stand: this.stand() }));
+        return new Response(null, { status: 101, webSocket: klant });
+      }
+      case '/api/kassa':
+        if (req.method !== 'POST') return json({ fout: 'Gebruik POST.' }, {}, 405);
+        if (!this.magSchrijven(req)) return json({ fout: 'Ongeldige of ontbrekende token.' }, {}, 401);
+        return this.invoer(req);
+      default:
+        return json({ fout: 'Onbekend pad.' }, {}, 404);
+    }
+  }
+
+  /* Kijkers zijn alleen-lezen: berichten van klanten worden genegeerd,
+   * behalve een ping om de verbinding te testen. */
+  webSocketMessage(ws, bericht) {
+    if (bericht === 'ping') ws.send('pong');
+  }
+  webSocketClose(ws, code) { try { ws.close(code, 'tot later'); } catch {} }
+  webSocketError() {}
+
+  magSchrijven(req) {
+    const verwacht = this.env.KASSA_TOKEN;
+    const kop = req.headers.get('Authorization') || '';
+    const gekregen = kop.startsWith('Bearer ') ? kop.slice(7) : '';
+    if (!verwacht || gekregen.length !== verwacht.length) return false;
+    let verschil = 0;
+    for (let i = 0; i < verwacht.length; i++) verschil |= verwacht.charCodeAt(i) ^ gekregen.charCodeAt(i);
+    return verschil === 0;
+  }
+
+  async invoer(req) {
+    let body;
+    try { body = await req.json(); } catch { return json({ fout: 'Body is geen geldige JSON.' }, {}, 400); }
+
+    const producten = leesProducten(this.env.PRODUCTEN);
+    const nu = Date.now();
+    const resultaat = { aanvaard: 0, dubbel: 0, geweigerd: [] };
+
+    /* Vorm 1: losse bestellingen (aanbevolen). Een object zonder "bestellingen" telt als één bestelling. */
+    let lijst = [].concat(body.bestellingen || body.events || (body.id != null ? [body] : []));
+    /* "correctie" is enkel voor intern gebruik (zie standNaarCorrecties): van buitenaf nooit aanvaarden. */
+    lijst = lijst.map(r => (r && typeof r === 'object' ? { ...r, correctie: false } : r));
+    /* Vorm 2: storno's van eerder doorgestuurde bestellingen. */
+    const storno = [].concat(body.storno || []);
+    /* Vorm 3: absolute stand per tafel (voor kassa's die alleen totalen kennen). */
+    if (body.stand) lijst = lijst.concat(this.standNaarCorrecties(body.stand, nu));
+
+    if (lijst.length + storno.length > MAX_BATCH) return json({ fout: `Maximaal ${MAX_BATCH} regels per oproep.` }, {}, 413);
+
+    for (let i = 0; i < lijst.length; i++) {
+      const b = normaliseer(lijst[i], producten, nu);
+      if (b.fout) { resultaat.geweigerd.push({ index: i, id: lijst[i]?.id ?? null, reden: b.fout }); continue; }
+      const bestaat = this.sql.exec('SELECT 1 FROM bestelling WHERE id = ?', b.id).toArray().length > 0;
+      if (bestaat) { resultaat.dubbel++; continue; }
+      this.sql.exec('INSERT INTO bestelling (id, tafel, ml, product, ts, ontvangen) VALUES (?, ?, ?, ?, ?, ?)',
+        b.id, b.tafel, b.ml, b.product, b.ts, nu);
+      this.boek(b);
+      resultaat.aanvaard++;
+    }
+
+    for (const id of storno) {
+      const rij = this.sql.exec('SELECT tafel, ml, ts, storno FROM bestelling WHERE id = ?', String(id)).toArray()[0];
+      if (!rij) { resultaat.geweigerd.push({ id, reden: 'Storno voor onbekende bestelling.' }); continue; }
+      if (rij.storno) { resultaat.dubbel++; continue; }
+      this.sql.exec('UPDATE bestelling SET storno = 1 WHERE id = ?', String(id));
+      this.boekTotaal(rij.tafel, -rij.ml, -1, 0);
+      const e = Math.floor(rij.ts / EMMER_MS) * EMMER_MS;
+      if (this.emmers.has(e)) this.emmers.set(e, this.emmers.get(e) - rij.ml);
+      resultaat.aanvaard++;
+    }
+    if (storno.length) this.recent = this.recent.filter(r => !storno.map(String).includes(r.id));
+
+    if (resultaat.aanvaard) {
+      this.bijgewerkt = nu;
+      this.planUitzending();
+    }
+    resultaat.totaal_ml = this.totaal;
+    return json(resultaat, {}, resultaat.geweigerd.length && !resultaat.aanvaard && !resultaat.dubbel ? 422 : 200);
+  }
+
+  /* Een absolute stand omzetten naar correctieregels, zodat er maar één
+   * boekhouding bestaat en de recente lijst en het verloop blijven kloppen. */
+  standNaarCorrecties(stand, nu) {
+    const uit = [];
+    const tafels = stand.tafels || {};
+    for (const [nr, liter] of Object.entries(tafels)) {
+      const doel = Math.round(Number(liter) * 1000);
+      const huidig = this.tafels[nr]?.ml || 0;
+      if (Number.isFinite(doel) && doel !== huidig) uit.push({ id: `stand:${nr}:${nu}`, tafel: nr, ml: doel - huidig, product: 'standcorrectie', correctie: true });
+    }
+    if (stand.zonder_tafel != null) {
+      const doel = Math.round(Number(stand.zonder_tafel) * 1000);
+      if (Number.isFinite(doel) && doel !== this.zonderTafel) uit.push({ id: `stand:-:${nu}`, tafel: null, ml: doel - this.zonderTafel, product: 'standcorrectie', correctie: true });
+    }
+    return uit;
+  }
+
+  planUitzending() {
+    if (this.uitzendTimer) return;
+    this.uitzendTimer = setTimeout(() => {
+      this.uitzendTimer = null;
+      const bericht = JSON.stringify({ type: 'stand', stand: this.stand() });
+      for (const ws of this.ctx.getWebSockets()) { try { ws.send(bericht); } catch {} }
+    }, UITZEND_MS);
+  }
+}
+
+/* Eén bestelling in het interne formaat gieten. Aanvaardt Nederlandse en
+ * Engelse sleutels, zodat het kassasysteem zo weinig mogelijk moet omzetten. */
+function normaliseer(r, producten, nu) {
+  if (!r || typeof r !== 'object') return { fout: 'Regel is geen object.' };
+  const id = r.id ?? r.bon_id;
+  if (id == null || String(id).length === 0 || String(id).length > 120) return { fout: 'Elke bestelling heeft een uniek "id" nodig (max. 120 tekens).' };
+
+  let tafel = r.tafel ?? r.table ?? null;
+  if (tafel === '' || tafel === 0 || tafel === '0') tafel = null;
+  if (tafel != null) {
+    tafel = String(tafel).trim().replace(/^tafel\s*/i, '');
+    if (tafel.length > 12) return { fout: 'Tafelnummer is te lang.' };
+  }
+
+  const aantal = r.aantal ?? r.qty ?? r.quantity ?? 1;
+  if (!Number.isInteger(aantal) || aantal === 0 || Math.abs(aantal) > MAX_AANTAL) return { fout: `"aantal" moet een geheel getal zijn tussen -${MAX_AANTAL} en ${MAX_AANTAL}, niet 0.` };
+
+  let mlPerStuk;
+  if (r.ml != null) mlPerStuk = Number(r.ml);
+  else if (r.cl != null) mlPerStuk = Number(r.cl) * 10;
+  else if (r.liter != null || r.liters != null) mlPerStuk = Number(r.liter ?? r.liters) * 1000;
+  else if (r.product != null && producten[r.product] != null) mlPerStuk = producten[r.product];
+  else return { fout: 'Geef een volume mee ("ml", "cl" of "liter") of een "product" dat in PRODUCTEN staat.' };
+
+  if (!Number.isFinite(mlPerStuk)) return { fout: 'Volume is geen getal.' };
+  mlPerStuk = Math.round(mlPerStuk);
+  if (!r.correctie && (mlPerStuk <= 0 || mlPerStuk > MAX_ML_PER_STUK)) return { fout: `Volume per stuk moet tussen 1 en ${MAX_ML_PER_STUK} ml liggen.` };
+
+  let ts = r.tijd ?? r.ts ?? r.time ?? nu;
+  ts = typeof ts === 'number' ? (ts < 1e12 ? ts * 1000 : ts) : Date.parse(ts);
+  if (!Number.isFinite(ts)) ts = nu;
+  if (ts > nu + 5 * 60 * 1000) ts = nu; // klok van de kassa loopt voor
+
+  return {
+    id: String(id),
+    tafel,
+    ml: r.correctie ? mlPerStuk : mlPerStuk * aantal,
+    product: r.product != null ? String(r.product).slice(0, 60) : (r.naam != null ? String(r.naam).slice(0, 60) : null),
+    ts,
+    correctie: !!r.correctie
+  };
+}
+
+function leesProducten(tekst) {
+  if (!tekst) return {};
+  if (typeof tekst === 'object') return tekst;
+  try { return JSON.parse(tekst); } catch { return {}; }
+}
+
+function cors() {
+  return {
+    'access-control-allow-origin': '*',
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
+    'access-control-allow-headers': 'Authorization, Content-Type'
+  };
+}
+
+function json(data, extra = {}, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'content-type': 'application/json; charset=utf-8', ...cors(), ...extra }
+  });
+}

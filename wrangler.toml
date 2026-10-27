@@ -1,0 +1,22 @@
+name = "bierfeesten"
+main = "worker/index.js"
+compatibility_date = "2025-09-01"
+
+[assets]
+directory = "public"
+binding = "ASSETS"
+
+[vars]
+# Elke editie krijgt een eigen telling. Volgend jaar: hier 2027 zetten, de oude cijfers blijven bewaard.
+EDITIE = "2026"
+# Optioneel: productcode -> ml per stuk, voor als de kassa geen volume meestuurt.
+PRODUCTEN = '{"PILS25": 250, "PILS33": 330, "SPEC33": 330, "PINT50": 500, "KAN100": 1000}'
+# KASSA_TOKEN is een geheim: `npx wrangler secret put KASSA_TOKEN` (lokaal: .dev.vars)
+
+[[durable_objects.bindings]]
+name = "TELLING"
+class_name = "Telling"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Telling"]
