@@ -13,6 +13,12 @@ Project van Victor (KSA Herentals). Live liters bier per tafel en totaal, gevoed
 - **Stijl is "Stempel"** (geel affichepapier, zwarte inkt, ruwe randen zoals het logo). Andere stijlen zijn bewust geschrapt.
 - Nooit secrets of tokens zelf invullen. Ze staan als GitHub secrets.
 
+## Online
+
+- Live: https://bierfeesten.victorvansande.workers.dev (Beamer: `?beamer`).
+- Push naar `main` = testen + online zetten via GitHub Actions (`.github/workflows/deploy.yml`). Secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` en `KASSA_TOKEN` staan in GitHub.
+- Cloudsessies kunnen het live domein meestal niet bereiken (niet bij Allowed domains): deploy dan opvolgen via de GitHub Actions-run en het deploylog.
+
 ## Feiten
 
 - Open twee dagen van 12u tot ±1u à 2u (~27 uur), samen ±1.200 L. Gemiddeld ±45 L/u, avondpieken ±80 à 90 L/u. Demo volgt die verhoudingen.

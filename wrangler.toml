@@ -1,6 +1,10 @@
 name = "bierfeesten"
 main = "worker/index.js"
 compatibility_date = "2025-09-01"
+# Publiek adres: https://bierfeesten.victorvansande.workers.dev
+workers_dev = true
+# Geen preview-URL's: elke versie zou anders naar dezelfde telling kunnen schrijven.
+preview_urls = false
 
 [assets]
 directory = "public"
