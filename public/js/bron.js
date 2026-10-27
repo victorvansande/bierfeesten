@@ -108,7 +108,7 @@
       const zonderTafel = Math.random() < 0.06;
       const tafel = zonderTafel ? null : this.kiesTafel();
       const [naam, ml] = this.kiesProduct();
-      const aantal = 1 + Math.floor(Math.random() ** 2 * 8);
+      const aantal = 1 + Math.floor(Math.random() ** 2 * 4);
       const totaal = ml * aantal;
       const s = this.stand;
       if (tafel) {
@@ -134,23 +134,25 @@
       this.onStand(JSON.parse(JSON.stringify(this.stand)));
     }
     start() {
-      /* Vier uur voorgeschiedenis met een avondcurve, zodat het verloop meteen iets toont. */
+      /* Realistische cijfers: de Bierfeesten zijn twee dagen open van 12u tot ±1u à 2u
+       * (~27 uur) en halen samen ±1.200 L. Dat is gemiddeld ±45 L per uur, met
+       * avondpieken rond 80 à 90 L. Vier uur voorgeschiedenis met zo'n avondcurve:
+       * 0,35 tot 1,85 bestellingen per minuut van gemiddeld ~0,7 L. */
       const nu = Date.now();
       for (let m = 240; m > 0; m -= 0.5) {
-        const ts = nu - m * 60000;
-        const drukte = 0.6 + Math.sin(((240 - m) / 240) * Math.PI * 0.9) * 2.2;
-        const kans = Math.random() * 3 < drukte ? Math.round(drukte * 1.6) : 0;
-        for (let i = 0; i < kans; i++) this.bestel(ts, m > 3);
+        const ts = nu - m * 60000 + Math.random() * 30000;
+        const perMinuut = 0.35 + Math.sin(((240 - m) / 240) * Math.PI * 0.85) * 1.5;
+        if (Math.random() < perMinuut / 2) this.bestel(ts, m > 4);
       }
       this.onStatus('demo', 'Demo');
       this.publiceer();
+      /* Live: gemiddeld elke ~35 s een bestelling, dus ±70 L per uur. */
       const tik = () => {
-        const n = Math.random() < 0.25 ? 2 : 1;
-        for (let i = 0; i < n; i++) this.bestel(Date.now());
+        this.bestel(Date.now());
         this.publiceer();
-        setTimeout(tik, 900 + Math.random() * 2600);
+        setTimeout(tik, 12000 + Math.random() * 46000);
       };
-      setTimeout(tik, 1500);
+      setTimeout(tik, 2500);
     }
   }
 

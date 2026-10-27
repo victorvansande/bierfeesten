@@ -1,12 +1,11 @@
 /* Herentalse Bierfeesten live
- * Twee stijlen: Stempel (standaard, geel affichepapier zoals het logo) en Scorebord (LED-matrix).
+ * Stijl "Stempel": geel affichepapier en zwarte inkt met ruwe randen, zoals het logo.
+ * Bewust één vaste look (geen donkere variant): beamer en gsm's tonen hetzelfde.
  * Layout: gsm = één kolom (teller, jouw tafel, plannen, ranglijst).
- *         beamer = drie kolommen: grote zaal | teller | tuinzaal + ranglijst, alles op één scherm.
- * Elk thema zet alleen tokens en een handvol eigen details. Elk thema is bewust één vaste look
- * (geen licht/donker-variant): de beamer en de gsm's in de zaal moeten hetzelfde tonen.
+ *         beamer = drie kolommen: tafelplan van beide zalen | teller | ranglijst, alles op één scherm.
  */
 
-/* ---------- Tokens (standaard = Stempel) ---------- */
+/* ---------- Tokens ---------- */
 :root {
   --bg: #FDDF59;
   --paneel: transparent;
@@ -28,7 +27,6 @@
   --tafel-tekst: #151110;
   --tafel-tekst-2: rgba(21, 17, 16, .72);
   --vul: #151110;
-  --vul-2: #151110;
   --vul-tekst: #FDDF59;
   --merk: #151110;
   --teller: #151110;
@@ -56,13 +54,8 @@ body {
   overflow-x: clip;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
-  --vul-fill: var(--vul);
-  --grafiek: var(--vul);
 }
 .defs { position: absolute; width: 0; height: 0; overflow: hidden; }
-.p-vul { fill: var(--vul); }
-.p-vul2 { fill: var(--vul-2); }
-.p-tafel { fill: var(--tafel); }
 button { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 
@@ -76,31 +69,6 @@ button { font: inherit; color: inherit; }
   text-align: center;
 }
 
-.kiezer {
-  position: sticky;
-  top: env(safe-area-inset-top, 0px);
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: var(--bg);
-  border-bottom: 1px solid color-mix(in srgb, var(--inkt) 25%, transparent);
-  padding-block: 8px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-}
-.kiezer-label { font: 600 12px var(--f-tekst); text-transform: uppercase; letter-spacing: .1em; color: var(--inkt-zacht); }
-.kiezer-knoppen { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; min-width: 0; }
-.kiezer-knoppen button {
-  flex: none;
-  border: 1.5px solid var(--inkt);
-  background: transparent;
-  border-radius: 999px;
-  padding: 5px 12px;
-  font: 600 13px var(--f-tekst);
-  cursor: pointer;
-}
-.kiezer-knoppen button[aria-selected="true"] { background: var(--inkt); color: var(--bg); }
 
 /* ---------- Schermindeling: gsm eerst ---------- */
 .scherm {
@@ -151,7 +119,7 @@ button { font: inherit; color: inherit; }
 }
 .teller-getal .sep { display: inline-block; }
 
-.kerncijfers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; width: 100%; max-width: 460px; }
+.kerncijfers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; width: 100%; max-width: 460px; }
 .kerncijfers div { display: flex; flex-direction: column-reverse; gap: 2px; padding-block: 8px; border-top: 2px solid var(--lijn); }
 .kerncijfers dt { font: 12px var(--f-tekst); text-transform: uppercase; letter-spacing: .08em; color: var(--inkt-zacht); }
 .kerncijfers dd { margin: 0; font: 400 28px/1 var(--f-kop); font-variant-numeric: tabular-nums; }
@@ -160,16 +128,29 @@ button { font: inherit; color: inherit; }
 .mb-tekst { display: flex; justify-content: space-between; gap: 12px; font: 13px var(--f-tekst); color: var(--inkt-zacht); }
 .mb-tekst span:first-child { color: var(--inkt); font-weight: 700; }
 .mb-spoor { height: 10px; border: 2px solid var(--lijn); position: relative; overflow: hidden; }
-.mb-vul { position: absolute; inset: 0 auto 0 0; background: var(--grafiek); transition: width 1.2s cubic-bezier(.2, .8, .2, 1); }
+.mb-spoor { overflow: visible; }
+.mb-streep { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--inkt); z-index: 1; }
+.mb-vj {
+  position: absolute; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; z-index: 2;
+  background: var(--accent);
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+.mb-schaal { position: relative; display: flex; justify-content: space-between; font: 11px var(--f-tekst); color: var(--inkt-zacht); min-height: 1.3em; }
+.mb-schaal-eind { color: var(--accent); font-weight: 700; }
+.mb-schaal-vj { position: absolute; transform: translateX(-50%); color: var(--accent); font-weight: 700; white-space: nowrap; }
+.mb-vul { position: absolute; inset: 0 auto 0 0; background: var(--vul); transition: width 1.2s cubic-bezier(.2, .8, .2, 1); }
 
 .verloop { margin: 0; width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 4px; }
-.verloop figcaption { display: flex; justify-content: space-between; font: 12px var(--f-tekst); text-transform: uppercase; letter-spacing: .08em; color: var(--inkt-zacht); }
-#verloop-svg { width: 100%; height: 64px; display: block; overflow: visible; }
-.vl-vlak { fill: color-mix(in srgb, var(--grafiek) 18%, transparent); }
-.vl-lijn { fill: none; stroke: var(--grafiek); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
-.vl-punt { fill: var(--accent); }
-.vl-uur { stroke: color-mix(in srgb, var(--inkt) 18%, transparent); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.vl-uurlabel { font: 9px var(--f-tekst); fill: var(--inkt-zacht); }
+.verloop figcaption { display: flex; justify-content: space-between; font: 400 15px var(--f-kop); text-transform: uppercase; letter-spacing: .08em; border-bottom: 2px solid var(--lijn); padding-bottom: 3px; }
+.verloop figcaption span:last-child { font: 12px var(--f-tekst); color: var(--inkt-zacht); align-self: flex-end; text-transform: none; letter-spacing: .02em; }
+#verloop-svg { width: 100%; height: 84px; display: block; overflow: visible; }
+.vl-inkt { filter: url(#ruw); }
+.vl-balk { fill: var(--inkt); }
+.vl-nu { fill: var(--accent); }
+.vl-voet { stroke: var(--inkt); stroke-width: 3; }
+.vl-uur { stroke: var(--inkt); stroke-width: 2; }
+.vl-uurlabel { font: 400 12px var(--f-kop); fill: var(--inkt); text-anchor: middle; letter-spacing: .04em; }
+.vl-piek { font: 700 11px var(--f-data); fill: var(--inkt); }
 
 /* Jouw tafel */
 .mijn {
@@ -181,18 +162,24 @@ button { font: inherit; color: inherit; }
 .mijn-label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--inkt-zacht); }
 .mijn-liter { font: 400 22px var(--f-kop); }
 .mijn-rang { color: var(--accent); font-weight: 700; }
+.mijn.mijn-leeg { font-size: 14px; border-style: dashed; color: var(--inkt); }
 
 /* Zalen */
 .zaal-kaart { display: flex; flex-direction: column; gap: 8px; min-width: 0; background: var(--paneel); }
-.zaal-kop { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-bottom: 2px solid var(--lijn); padding-bottom: 4px; }
-.zaal-kop h2, .blok-kop {
+.blok-kop {
   margin: 0;
   font: 400 24px/1.1 var(--f-kop);
   text-transform: var(--kop-transform);
   letter-spacing: var(--kop-spatie);
 }
-.zaal-liter { font: 700 18px var(--f-data); font-variant-numeric: tabular-nums; }
-.plan { min-height: 0; }
+.plan { min-height: 0; display: flex; flex-direction: column; gap: 22px; }
+.plan-noot { margin: 0; font-size: 12px; color: var(--inkt-zacht); }
+.plan[data-weergave="samen"] + .plan-noot { display: none; }
+.zaal-naam { font: 400 22px var(--f-kop); fill: var(--inkt); text-transform: uppercase; letter-spacing: .04em; }
+.zaal-som { font: 700 16px var(--f-data); fill: var(--inkt); font-variant-numeric: tabular-nums; }
+.tussenmuur { fill: none; stroke: var(--muur); }
+.doorgang { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 3 3; }
+.doorgang-label { font: 700 10px var(--f-data); fill: var(--accent); letter-spacing: .04em; }
 .plan-svg { display: block; width: 100%; height: auto; overflow: visible; }
 
 .vloer { fill: var(--vloer); stroke: var(--vloer-rand); stroke-width: var(--vloer-sw); }
@@ -208,7 +195,7 @@ button { font: inherit; color: inherit; }
 
 .tafel { cursor: pointer; outline: none; }
 .t-blad { fill: var(--tafel); }
-.t-vul { fill: var(--vul-fill); transition: y .9s cubic-bezier(.2, .8, .2, 1), height .9s cubic-bezier(.2, .8, .2, 1); }
+.t-vul { fill: var(--vul); transition: y .9s cubic-bezier(.2, .8, .2, 1), height .9s cubic-bezier(.2, .8, .2, 1); }
 .t-tekst-op-vul rect { transition: y .9s, height .9s; }
 .t-rand { fill: none; stroke: var(--tafel-rand); stroke-width: var(--tafel-sw); transition: stroke .2s; }
 .t-nr { font: 400 15px var(--f-tafelnr); fill: var(--tafel-tekst); }
@@ -221,7 +208,7 @@ button { font: inherit; color: inherit; }
 @keyframes tik { 0% { fill: var(--accent); } 100% { fill: var(--tafel); } }
 
 /* Ranglijst en recent */
-.zijkant { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+#blok-rang, #blok-recent { min-width: 0; }
 .blok-kop { font-size: 20px; border-bottom: 2px solid var(--lijn); padding-bottom: 4px; margin-bottom: 4px; }
 #ranglijst, #recent { list-style: none; margin: 0; padding: 0; }
 #ranglijst li {
@@ -237,7 +224,7 @@ button { font: inherit; color: inherit; }
 .rl-naam { font: 700 16px var(--f-tekst); display: flex; flex-direction: column; min-width: 0; }
 .rl-naam small { font-weight: 400; font-size: 12px; color: var(--inkt-zacht); }
 .rl-liter { font: 400 22px/1 var(--f-kop); font-variant-numeric: tabular-nums; }
-.rl-balk { grid-column: 2 / -1; height: 4px; background: linear-gradient(90deg, var(--grafiek) var(--w), transparent var(--w)); }
+.rl-balk { grid-column: 2 / -1; height: 4px; background: linear-gradient(90deg, var(--vul) var(--w), transparent var(--w)); }
 #recent li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -317,42 +304,69 @@ li.leeg { color: var(--inkt-zacht); font-style: italic; padding-block: 8px; curs
 @keyframes mp-uit { to { opacity: 0; transform: scale(1.05); } }
 @keyframes draai { to { transform: rotate(360deg); } }
 
-/* ---------- Tablet: twee kolommen ---------- */
+/* ---------- Gsm: volgorde ----------
+ * De blokken staan als één kolom in de volgorde waarin iemand aan een tafel ze wil zien:
+ * totaal en eigen tafel, wie er wint, het plan, wat er net gebeurde, het verloop. */
+.zijkant { display: contents; }
+.midden { order: 1; }
+#blok-rang { order: 2; }
+#kaart { order: 3; }
+#blok-recent { order: 4; }
+.verloop-blok { order: 5; }
+.voet { order: 6; }
+
+/* ---------- Tablet en liggende laptop: twee kolommen ----------
+ * Links teller, verloop en ranglijst; rechts het plan met daaronder "Net getapt".
+ * Zo lopen beide kolommen ongeveer even lang door en blijft er geen gat. */
 @media (min-width: 900px) {
   .scherm {
-    max-width: 1180px;
+    max-width: 1240px;
     display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-    grid-template-areas: "midden midden" "groot tuin" "groot zij" "voet voet";
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+    grid-template-rows: auto auto auto 1fr auto;
+    grid-template-areas:
+      "midden kaart"
+      "verloop kaart"
+      "rang kaart"
+      "rang recent"
+      "voet voet";
     align-items: start;
-    gap: 28px 40px;
+    gap: 28px 44px;
   }
   .midden { grid-area: midden; }
-  #kaart-grote-zaal { grid-area: groot; }
-  #kaart-tuinzaal { grid-area: tuin; }
-  .zijkant { grid-area: zij; }
+  .verloop-blok { grid-area: verloop; }
+  #kaart { grid-area: kaart; }
+  #blok-rang { grid-area: rang; }
+  #blok-recent { grid-area: recent; }
   .voet { grid-area: voet; }
 }
 
 /* ---------- Beamer / groot liggend scherm: alles op één scherm ---------- */
 @media (min-width: 1200px) and (min-aspect-ratio: 4/3) {
   body { overflow: hidden; display: flex; flex-direction: column; }
-  .demo-band, .kiezer { flex: none; }
+  .demo-band { flex: none; }
   .scherm {
     max-width: none;
     width: 100%;
     flex: 1;
     min-height: 0;
-    grid-template-columns: minmax(0, 1.08fr) minmax(0, 1.12fr) minmax(0, .82fr);
-    grid-template-rows: minmax(0, 1.05fr) minmax(0, 1fr) auto;
-    grid-template-areas: "groot midden tuin" "groot midden zij" "voet voet voet";
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, .72fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "kaart midden rang"
+      "kaart midden recent"
+      "kaart verloop recent"
+      "voet voet voet";
+    align-items: stretch;
     gap: 1.6vh 2.4vw;
     padding-block: 2.2vh 1.4vh;
     padding-left: max(2vw, env(safe-area-inset-left, 0px));
     padding-right: max(2vw, env(safe-area-inset-right, 0px));
   }
-  .zaal-kaart, .zijkant { min-height: 0; height: 100%; }
-  .plan { flex: 1; display: flex; }
+  .mijn { display: none !important; }
+  #blok-recent { min-height: 0; overflow: hidden; }
+  .zaal-kaart { min-height: 0; height: 100%; }
+  .plan { flex: 1; min-height: 0; }
   .plan-svg { height: 100%; width: 100%; }
   .midden { justify-content: center; gap: 2.4vh; }
   .merk { width: min(80%, 30vh * 2.1); }
@@ -361,9 +375,8 @@ li.leeg { color: var(--inkt-zacht); font-style: italic; padding-block: 8px; curs
   .teller-eenheid { font-size: max(18px, 2.4vh); }
   .kerncijfers, .mijlpaal-balk, .verloop { max-width: 92%; }
   .kerncijfers dd { font-size: max(28px, 3.8vh); }
-  #verloop-svg { height: 9vh; }
-  .zijkant { gap: 2vh; overflow: hidden; }
-  #recent li:nth-child(n+4) { display: none; }
+  #verloop-svg { height: 11vh; }
+  #recent li:nth-child(n+7) { display: none; }
   #recent li { grid-template-columns: auto minmax(0, 1fr) auto; padding-block: .6vh; }
   #recent .rc-tafel { grid-column: 1; }
   #recent .rc-wat { grid-row: 1; grid-column: 2; padding-left: 4px; align-self: center; }
@@ -372,8 +385,6 @@ li.leeg { color: var(--inkt-zacht); font-style: italic; padding-block: 8px; curs
   #ranglijst li { grid-template-columns: 2.2em minmax(0, 1fr) auto; }
   .rl-naam { flex-direction: row; align-items: baseline; gap: 8px; }
   .rl-balk { height: 3px; }
-  .zaal-kop h2 { font-size: max(24px, 2.8vh); }
-  .zaal-liter { font-size: max(18px, 2.2vh); }
   .blok-kop { font-size: max(20px, 2.4vh); }
   #ranglijst li { padding-block: .7vh; }
   .rl-liter, .rl-rang { font-size: max(22px, 2.6vh); }
@@ -385,79 +396,6 @@ li.leeg { color: var(--inkt-zacht); font-style: italic; padding-block: 8px; curs
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 
-/* =====================================================================
-   THEMA'S
-   ===================================================================== */
-
-/* 1. Stempel: linosnede op geel affichepapier, zoals het logo */
-body[data-thema="stempel"] .teller-getal,
-body[data-thema="stempel"] .mp-getal { filter: url(#ruw-groot); }
-body[data-thema="stempel"] .vloer,
-body[data-thema="stempel"] .el,
-body[data-thema="stempel"] .t-rand,
-body[data-thema="stempel"] .zaal-kop,
-body[data-thema="stempel"] .blok-kop,
-body[data-thema="stempel"] .mb-spoor { filter: url(#ruw); }
-body[data-thema="stempel"] .mp-ster { filter: url(#ruw-groot); }
-
-/* 2. Scorebord: amberkleurige LED-matrix van een sporthal */
-body[data-thema="scorebord"] {
-  --bg: #070707;
-  --paneel: transparent;
-  --inkt: #FFB000;
-  --inkt-zacht: #9C6C00;
-  --accent: #FF5A1F;
-  --lijn: #3A2800;
-  --vloer: #0B0B0B;
-  --vloer-rand: #3A2800;
-  --vloer-sw: 2;
-  --vloer-breuk: rgba(255, 176, 0, .025);
-  --el: #2A1D00;
-  --el-tekst: #FFB000;
-  --muur: #5A3F00;
-  --deur: #5A3F00;
-  --tafel: #120D02;
-  --tafel-rand: #3A2800;
-  --tafel-sw: 1.2;
-  --tafel-tekst: #FFB000;
-  --tafel-tekst-2: #FFCF5C;
-  --vul: #FFB000;
-  --vul-2: #1C1400;
-  --vul-fill: url(#led);
-  --vul-tekst: #140C00;
-  --merk: #FFB000;
-  --teller: #FFB000;
-  --f-teller: 'Anton', 'Impact', sans-serif;
-  --f-kop: 'DotGothic16', 'Courier New', monospace;
-  --f-tekst: 'DotGothic16', 'Courier New', monospace;
-  --f-data: 'DotGothic16', 'Courier New', monospace;
-  --f-tafelnr: 'DotGothic16', monospace;
-  --kop-spatie: .1em;
-  --teller-lh: 1.06;
-  color-scheme: dark;
-}
-body[data-thema="scorebord"] .t-blad { fill: url(#raster-uit); }
-body[data-thema="scorebord"] .t-nr { font-size: 16px; }
-body[data-thema="scorebord"] .t-liter { font-size: 11px; }
-/* Het niveau is hier een gedimd veld van brandende LED's; de cijfers blijven altijd amber op zwart leesbaar. */
-body[data-thema="scorebord"] .t-vul { opacity: .38; }
-body[data-thema="scorebord"] .t-tekst-op-vul { display: none; }
-body[data-thema="scorebord"] .t-tekst .t-nr, body[data-thema="scorebord"] .t-tekst .t-liter { paint-order: stroke; stroke: #0B0800; stroke-width: 3.5px; }
-body[data-thema="scorebord"] .t-top .t-vul { opacity: .6; }
-body[data-thema="scorebord"] .t-top .t-tekst { filter: drop-shadow(0 0 3px rgba(255, 176, 0, .9)); }
-body[data-thema="scorebord"] .t-top .t-liter { fill: #FFF1C2; }
-body[data-thema="scorebord"] .teller { filter: drop-shadow(0 0 .25em rgba(255, 176, 0, .55)); }
-body[data-thema="scorebord"] .teller-getal,
-body[data-thema="scorebord"] .mp-getal {
-  -webkit-mask: radial-gradient(circle, #000 .028em, transparent .036em) 0 0 / .085em .085em;
-  mask: radial-gradient(circle, #000 .028em, transparent .036em) 0 0 / .085em .085em;
-  font-size: clamp(76px, 25vw, 150px);
-}
-body[data-thema="scorebord"] .merk { filter: drop-shadow(0 0 8px rgba(255, 176, 0, .4)); }
-body[data-thema="scorebord"] .kerncijfers dd, body[data-thema="scorebord"] .rl-liter, body[data-thema="scorebord"] .rl-rang { text-shadow: 0 0 10px rgba(255, 176, 0, .55); }
-body[data-thema="scorebord"] .mb-vul { background: radial-gradient(circle, #FFB000 2px, transparent 2.6px) 0 50% / 6px 6px; }
-body[data-thema="scorebord"] .mp-ster { background: #2A1D00; }
-body[data-thema="scorebord"] .td-volg { background: var(--inkt); color: #000; }
-@media (min-width: 1200px) and (min-aspect-ratio: 4/3) {
-  body[data-thema="scorebord"] .teller-getal { font-size: min(8.2vw, 20vh); }
-}
+/* ---------- Stempel: linosnede op geel affichepapier, zoals het logo ---------- */
+.teller-getal, .mp-getal, .mp-ster { filter: url(#ruw-groot); }
+.vloer, .el, .t-rand, .tussenmuur, .zaal-naam, .blok-kop, .mb-spoor { filter: url(#ruw); }

@@ -80,6 +80,18 @@ window.ZAAL = {
   ]
 };
 
+/* Samen vormen beide zalen één grote zaal: de tuinzaal ligt links van de grote
+ * zaal. De twee deuren rechts in de tuinzaal sluiten aan op de twee deuren links
+ * in de grote zaal. Op die deuren is uitgelijnd: in het plan van de grote zaal
+ * liggen hun middens op y 225,6 en 540,8, in de tuinzaal op 75,5 en 394,5.
+ * Beide paren liggen ~317 eenheden uit elkaar, wat de schaalfactor bevestigt.
+ * Verschuiving van de tuinzaal: (150,1 + 146,3) / 2 = 148. */
+window.ZAAL.samen = {
+  muur: 12,                                   // dikte van de tussenmuur
+  plaats: { 'tuinzaal': [0, 148], 'grote-zaal': [316, 0] },
+  doorgangen: [[202, 246], [520, 563]]        // openingen in de tussenmuur (y, gemeenschappelijk)
+};
+
 /* Opzoektabel tafelnummer -> zaal-id */
 window.ZAAL.zaalVan = {};
 for (const z of window.ZAAL.zalen) for (const nr in z.tafels) window.ZAAL.zaalVan[nr] = z.id;

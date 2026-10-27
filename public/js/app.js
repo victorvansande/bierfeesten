@@ -2,16 +2,11 @@
 (function () {
   const SVGNS = 'http://www.w3.org/2000/svg';
   const $ = id => document.getElementById(id);
-  const THEMAS = [['stempel', 'Stempel'], ['scorebord', 'Scorebord']];
 
-  /* ---- Instellingen: config.js, overschreven door URL en #thema ---- */
+  /* ---- Instellingen: config.js, enkele zaken overschrijfbaar via de URL ---- */
   const cfg = Object.assign({}, window.BF_CONFIG);
   const q = new URLSearchParams(location.search);
   if (q.has('demo')) cfg.bron = 'demo';
-  if (q.has('kiezer')) cfg.kiezer = true;
-  if (q.get('thema')) cfg.thema = q.get('thema');
-  const uitHash = location.hash.slice(1);
-  if (THEMAS.some(t => t[0] === uitHash)) cfg.thema = uitHash;
   const beamer = q.has('beamer');
 
   const fmt1 = new Intl.NumberFormat('nl-BE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -20,28 +15,6 @@
 
   let mijnTafel = null;
   try { mijnTafel = localStorage.getItem('bf-mijn-tafel'); } catch {}
-
-  /* ---- Thema ---- */
-  function zetThema(id) {
-    if (!THEMAS.some(t => t[0] === id)) id = 'stempel';
-    document.body.dataset.thema = id;
-    cfg.thema = id;
-    document.querySelectorAll('.kiezer-knoppen button').forEach(b => b.setAttribute('aria-selected', b.dataset.thema === id));
-    const kleur = getComputedStyle(document.body).getPropertyValue('--bg').trim();
-    if (kleur) document.querySelector('meta[name=theme-color]').content = kleur;
-    tekenVerloop();
-    if (typeof tellerWaarde === 'number') tekenTeller(tellerWaarde);
-  }
-  if (cfg.kiezer) {
-    $('kiezer').hidden = false;
-    for (const [id, naam] of THEMAS) {
-      const b = document.createElement('button');
-      b.type = 'button'; b.role = 'tab'; b.dataset.thema = id; b.textContent = naam;
-      b.addEventListener('click', () => { zetThema(id); history.replaceState(null, '', '#' + id); });
-      $('kiezer-knoppen').append(b);
-    }
-    addEventListener('hashchange', () => zetThema(location.hash.slice(1)));
-  }
 
   /* ---- Plattegrond ---- */
   /* Op smalle schermen wordt de lege middenzone van de grote zaal (tussen de
@@ -77,60 +50,116 @@
     return e;
   }
 
-  const tafelEls = {};   // nr -> { g, vul, clip, liter, liter2, w, h }
-  function bouwPlannen() {
-    const compact = matchMedia('(max-width: 899px)').matches;
-    for (const zaal of ZAAL.zalen) {
-      const houder = document.querySelector(`[data-plan="${zaal.id}"]`);
-      const { fx, breedte, breuk } = maakFx(zaal, compact);
-      const m = 10;
-      const svg = el('svg', { viewBox: `${-m} ${-m} ${breedte + 2 * m} ${zaal.hoogte + 2 * m}`, role: 'group', 'aria-label': `Plan ${zaal.naam}` });
-      svg.classList.add('plan-svg');
-      el('rect', { class: 'vloer', x: 0, y: 0, width: breedte, height: zaal.hoogte, rx: 3 }, svg);
-      if (breuk) {
-        el('rect', { class: 'breuk-zone', x: breuk[0], y: 0, width: breuk[1] - breuk[0], height: zaal.hoogte }, svg);
-        el('path', { class: 'breuk', d: `M${breuk[0]} 0V${zaal.hoogte}M${breuk[1]} 0V${zaal.hoogte}` }, svg);
-      }
-      for (const e of zaal.elementen) {
-        el('path', { class: 'el el-' + e.soort, d: padFx(e.pad, fx) }, svg);
-        if (e.label) {
-          const [lx, ly] = e.labelPos;
-          const t = el('text', { class: 'el-label el-label-' + e.soort, x: fx(lx), y: ly, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, svg);
-          if (e.draai) t.setAttribute('transform', `rotate(${e.draai} ${fx(lx)} ${ly})`);
-          t.textContent = e.label;
-        }
-      }
-      for (const [nr, [x0, y, w, h]] of Object.entries(zaal.tafels)) {
-        const x = fx(x0 + w / 2) - w / 2;
-        const g = el('g', { class: 'tafel', transform: `translate(${x} ${y})`, tabindex: 0, role: 'button', 'data-nr': nr }, svg);
-        const id = 'clip-' + nr;
-        const cp = el('clipPath', { id }, g);
-        const clip = el('rect', { x: 0, y: h, width: w, height: 0 }, cp);
-        el('rect', { class: 't-blad', x: 0, y: 0, width: w, height: h }, g);
-        const vul = el('rect', { class: 't-vul', x: 0, y: h, width: w, height: 0 }, g);
-        el('rect', { class: 't-rand', x: 0, y: 0, width: w, height: h }, g);
-        const staand = h > w;
-        const ny = staand ? h * 0.36 : h * 0.4, ly = staand ? h * 0.7 : h * 0.77;
-        const maakTekst = (klasse, extra) => {
-          const tg = el('g', Object.assign({ class: klasse }, extra), g);
-          const tn = el('text', { class: 't-nr', x: w / 2, y: ny, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, tg);
-          tn.textContent = nr;
-          const tl = el('text', { class: 't-liter', x: w / 2, y: ly, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, tg);
-          tl.textContent = '0,0';
-          return tl;
-        };
-        const l1 = maakTekst('t-tekst');
-        const l2 = maakTekst('t-tekst t-tekst-op-vul', { 'clip-path': `url(#${id})` });
-        const title = el('title', {}, g);
-        tafelEls[nr] = { g, vul, clip, l1, l2, w, h, title, laatsteMl: -1 };
-        if (nr === mijnTafel) g.classList.add('t-mijn');
-      }
-      houder.replaceChildren(svg);
+  const tafelEls = {};   // nr -> { g, vul, clip, l1, l2, w, h, title, laatsteMl }
+  const zaalLiterEls = {}; // zaal-id -> [text-elementen]
+
+  /* Eén zaal tekenen in groep `ouder`. Geeft de breedte na eventuele inkorting terug. */
+  function tekenZaal(zaal, ouder, compact, metLabel) {
+    const { fx, breedte, breuk } = maakFx(zaal, compact);
+    el('rect', { class: 'vloer', x: 0, y: 0, width: breedte, height: zaal.hoogte, rx: 3 }, ouder);
+    if (breuk) {
+      el('rect', { class: 'breuk-zone', x: breuk[0], y: 0, width: breuk[1] - breuk[0], height: zaal.hoogte }, ouder);
+      el('path', { class: 'breuk', d: `M${breuk[0]} 0V${zaal.hoogte}M${breuk[1]} 0V${zaal.hoogte}` }, ouder);
     }
+    for (const e of zaal.elementen) {
+      el('path', { class: 'el el-' + e.soort, d: padFx(e.pad, fx) }, ouder);
+      if (e.label) {
+        const [lx, ly] = e.labelPos;
+        const t = el('text', { class: 'el-label el-label-' + e.soort, x: fx(lx), y: ly, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, ouder);
+        if (e.draai) t.setAttribute('transform', `rotate(${e.draai} ${fx(lx)} ${ly})`);
+        t.textContent = e.label;
+      }
+    }
+    if (metLabel) {
+      const naam = el('text', { class: 'zaal-naam', x: 2, y: -9 }, ouder);
+      naam.textContent = zaal.naam;
+      const l = el('text', { class: 'zaal-som', x: breedte - 2, y: -9, 'text-anchor': 'end' }, ouder);
+      l.textContent = '0,0 L';
+      (zaalLiterEls[zaal.id] ||= []).push(l);
+    }
+    for (const [nr, [x0, y, w, h]] of Object.entries(zaal.tafels)) {
+      const x = fx(x0 + w / 2) - w / 2;
+      const g = el('g', { class: 'tafel', transform: `translate(${x} ${y})`, tabindex: 0, role: 'button', 'data-nr': nr }, ouder);
+      const id = 'clip-' + nr;
+      const cp = el('clipPath', { id }, g);
+      const clip = el('rect', { x: 0, y: h, width: w, height: 0 }, cp);
+      el('rect', { class: 't-blad', x: 0, y: 0, width: w, height: h }, g);
+      const vul = el('rect', { class: 't-vul', x: 0, y: h, width: w, height: 0 }, g);
+      el('rect', { class: 't-rand', x: 0, y: 0, width: w, height: h }, g);
+      const staand = h > w;
+      const ny = staand ? h * 0.36 : h * 0.4, ly = staand ? h * 0.7 : h * 0.77;
+      const maakTekst = (klasse, extra) => {
+        const tg = el('g', Object.assign({ class: klasse }, extra), g);
+        const tn = el('text', { class: 't-nr', x: w / 2, y: ny, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, tg);
+        tn.textContent = nr;
+        const tl = el('text', { class: 't-liter', x: w / 2, y: ly, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, tg);
+        tl.textContent = '0,0';
+        return tl;
+      };
+      const l1 = maakTekst('t-tekst');
+      const l2 = maakTekst('t-tekst t-tekst-op-vul', { 'clip-path': `url(#${id})` });
+      const title = el('title', {}, g);
+      tafelEls[nr] = { g, vul, clip, l1, l2, w, h, title, laatsteMl: -1 };
+      if (nr === mijnTafel) g.classList.add('t-mijn');
+    }
+    return breedte;
+  }
+
+  /* Groot scherm: één plan met beide zalen naast elkaar, zoals in het echt.
+   * Gsm: elke zaal apart onder elkaar (anders worden de tafels te klein),
+   * met de verbindingsdeuren aangeduid. */
+  const mqGsm = matchMedia('(max-width: 899px)');
+  function bouwPlannen() {
+    const gsm = mqGsm.matches;
+    const houder = $('plan');
+    for (const k in zaalLiterEls) delete zaalLiterEls[k];
+    const m = 10, kop = 30;
+    const zalen = Object.fromEntries(ZAAL.zalen.map(z => [z.id, z]));
+    const svgs = [];
+    if (!gsm) {
+      const S = ZAAL.samen;
+      const tz = zalen['tuinzaal'], gz = zalen['grote-zaal'];
+      const svg = el('svg', { role: 'group', 'aria-label': 'Plan van de zaal: tuinzaal links, grote zaal rechts' });
+      const [tx, ty] = S.plaats['tuinzaal'];
+      const [, gy] = S.plaats['grote-zaal'];
+      const gT = el('g', { transform: `translate(${tx} ${ty})` }, svg);
+      const bT = tekenZaal(tz, gT, false, true);
+      const gx = tx + bT + S.muur;
+      /* Tussenmuur met de twee doorgangen. */
+      const muurTop = ty, muurBodem = ty + tz.hoogte;
+      let y = muurTop, d = '';
+      for (const [van, tot] of S.doorgangen) { d += `M${bT + S.muur / 2} ${y}V${van}`; y = tot; }
+      d += `M${bT + S.muur / 2} ${y}V${muurBodem}`;
+      el('path', { class: 'tussenmuur', d, 'stroke-width': S.muur }, svg);
+      for (const [van, tot] of S.doorgangen) el('path', { class: 'doorgang', d: `M${bT - 4} ${(van + tot) / 2}H${gx + 4}` }, svg);
+      const gG = el('g', { transform: `translate(${gx} ${gy})` }, svg);
+      const bG = tekenZaal(gz, gG, cfg.plan_inkorten, true);
+      svg.setAttribute('viewBox', `${-m} ${-kop} ${gx + bG + 2 * m} ${Math.max(gz.hoogte + gy, tz.hoogte + ty) + kop + m}`);
+      svgs.push(svg);
+    } else {
+      for (const id of ['grote-zaal', 'tuinzaal']) {
+        const z = zalen[id];
+        const svg = el('svg', { role: 'group', 'aria-label': `Plan ${z.naam}` });
+        const b = tekenZaal(z, el('g', {}, svg), id === 'grote-zaal', true);
+        /* Verbindingsdeuren aanduiden: in het echt hangen de zalen hier aan elkaar. */
+        const S = ZAAL.samen, oy = S.plaats[id][1];
+        for (const [van, tot] of S.doorgangen) {
+          const yy = (van + tot) / 2 - oy;
+          const t = el('text', { class: 'doorgang-label', x: id === 'tuinzaal' ? b - 4 : 4, y: yy, 'text-anchor': id === 'tuinzaal' ? 'end' : 'start', 'dominant-baseline': 'central' }, svg);
+          t.textContent = id === 'tuinzaal' ? 'grote zaal →' : '← tuinzaal';
+          if (id === 'grote-zaal') t.setAttribute('transform', `rotate(-90 4 ${yy}) translate(-22 6)`);
+          if (id === 'tuinzaal') t.setAttribute('transform', `rotate(90 ${b - 4} ${yy}) translate(26 6)`);
+        }
+        svg.setAttribute('viewBox', `${-m} ${-kop} ${b + 2 * m} ${z.hoogte + kop + m}`);
+        svgs.push(svg);
+      }
+    }
+    svgs.forEach(s => s.classList.add('plan-svg'));
+    houder.replaceChildren(...svgs);
+    houder.dataset.weergave = gsm ? 'apart' : 'samen';
     if (laatsteStand) toonTafels(laatsteStand, true);
   }
-  const mq = matchMedia('(max-width: 899px)');
-  mq.addEventListener('change', bouwPlannen);
+  mqGsm.addEventListener('change', bouwPlannen);
 
   /* ---- Teller met rollende cijfers ---- */
   const teller = $('teller-getal');
@@ -156,15 +185,12 @@
     teller.dataset.tekst = tekst;
     teller.setAttribute('aria-label', tekst + ' liter');
     /* Kilometerteller: x = deciliters. Elk cijfer draait mee zodra alle lagere cijfers op 9 staan. */
-    /* Een LED-scorebord rolt niet maar springt: daar staan de cijfers altijd recht. */
-    const springt = document.body.dataset.thema === 'scorebord';
-    const x = springt ? Math.floor(v / 100) : v / 100;
+    const x = v / 100;
     const cijfers = [...teller.querySelectorAll('.c')].reverse();
     cijfers.forEach((c, k) => {
       const macht = 10 ** k;
       let pos;
-      if (springt) pos = Math.floor(x / macht) % 10;
-      else if (k === 0) pos = x % 10;
+      if (k === 0) pos = x % 10;
       else {
         const rest = x % macht;
         pos = Math.floor(x / macht) % 10 + Math.max(0, rest - (macht - 1));
@@ -200,12 +226,12 @@
     toonRanglijst(s);
     toonRecent(s);
     tekenVerloop();
-    toonMijlpaal(s, eerste);
+    toonDoelen(s, eerste);
     toonMijn();
   }
 
   function toonTafels(s, eerste) {
-    const maxMl = Math.max(4000, ...Object.values(s.tafels).map(t => t.ml));
+    const maxMl = Math.max(2000, ...Object.values(s.tafels).map(t => t.ml));
     const perZaal = {};
     const lijst = Object.entries(s.tafels).filter(([nr]) => ZAAL.zaalVan[nr]).sort((a, b) => b[1].ml - a[1].ml);
     rangVan = {};
@@ -228,7 +254,7 @@
       }
       e.laatsteMl = t.ml;
     }
-    document.querySelectorAll('[data-zaal-liter]').forEach(x => { x.textContent = liter(perZaal[x.dataset.zaalLiter] || 0) + ' L'; });
+    for (const [id, els] of Object.entries(zaalLiterEls)) for (const x of els) x.textContent = liter(perZaal[id] || 0) + ' L';
   }
 
   function literPerUur(s) {
@@ -240,7 +266,6 @@
   }
 
   function toonKerncijfers(s) {
-    $('k-bakken').textContent = fmt0.format(Math.floor(s.totaal_ml / 1000 / cfg.bak_l));
     $('k-uur').textContent = fmt0.format(literPerUur(s));
     $('k-best').textContent = fmt0.format(s.bestellingen);
   }
@@ -280,53 +305,93 @@
   }
   function escape(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
+  /* Verloop als linosnede: één inktblok per 5 minuten, het lopende blok in het rood.
+   * De viewBox volgt de echte pixelbreedte, zodat tekst nooit uitgerekt wordt. */
   function tekenVerloop() {
     const s = laatsteStand; const svg = $('verloop-svg');
     if (!s || !s.verloop) return;
-    const W = 400, H = 70, ml = s.verloop.ml, n = ml.length;
-    const max = Math.max(1, ...ml);
-    const pt = (v, i) => [i / (n - 1) * W, H - 4 - v / max * (H - 12)];
-    const pts = ml.map(pt);
-    const lijn = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('');
-    const [ex, ey] = pts[n - 1];
-    const uren = [];
-    for (let i = 0; i < n; i++) {
+    const W = Math.max(200, Math.round(svg.clientWidth)), H = Math.max(60, Math.round(svg.clientHeight));
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const ml = s.verloop.ml, n = ml.length;
+    const voet = H - 16, top = 14;
+    const max = Math.max(1000, ...ml);
+    const bw = W / n, gat = Math.max(1, bw * 0.24);
+    const piekI = ml.indexOf(Math.max(...ml));
+    let balken = '', uren = '';
+    ml.forEach((v, i) => {
+      const h = v / max * (voet - top);
+      if (h > 0) balken += `<rect class="vl-balk${i === n - 1 ? ' vl-nu' : ''}" x="${(i * bw + gat / 2).toFixed(1)}" y="${(voet - h).toFixed(1)}" width="${(bw - gat).toFixed(1)}" height="${h.toFixed(1)}"/>`;
       const ts = s.verloop.begin + i * s.verloop.emmer_ms;
-      if (new Date(ts).getMinutes() === 0) uren.push([i / (n - 1) * W, new Date(ts).getHours()]);
-    }
-    svg.innerHTML =
-      uren.map(([x, h]) => `<line class="vl-uur" x1="${x}" x2="${x}" y1="0" y2="${H}"/><text class="vl-uurlabel" x="${x + 3}" y="9">${h}u</text>`).join('') +
-      `<path class="vl-vlak" d="${lijn}L${W} ${H}L0 ${H}Z"/><path class="vl-lijn" d="${lijn}"/><circle class="vl-punt" cx="${ex}" cy="${ey}" r="3.2"/>`;
+      if (new Date(ts).getMinutes() === 0) {
+        const x = (i * bw).toFixed(1);
+        balken += `<line class="vl-uur" x1="${x}" x2="${x}" y1="${voet}" y2="${voet + 5}"/>`;
+        uren += `<text class="vl-uurlabel" x="${x}" y="${H - 1}">${new Date(ts).getHours()}u</text>`;
+      }
+    });
+    const piek = ml[piekI] > 0 ? `<text class="vl-piek" x="${Math.min(W - 2, Math.max(2, piekI * bw + bw / 2))}" y="${(voet - ml[piekI] / max * (voet - top) - 4).toFixed(1)}" text-anchor="${piekI * bw > W - 60 ? 'end' : piekI * bw < 60 ? 'start' : 'middle'}">${fmt1.format(ml[piekI] / 1000)} L</text>` : '';
+    svg.innerHTML = `<g class="vl-inkt">${balken}<line class="vl-voet" x1="0" x2="${W}" y1="${voet}" y2="${voet}"/></g>${uren}${piek}`;
   }
+  let herteken;
+  addEventListener('resize', () => { clearTimeout(herteken); herteken = setTimeout(tekenVerloop, 150); });
 
-  function toonMijlpaal(s, eerste) {
+  /* Tussendoelen: elke `tussendoel_l` liter een feestmoment, met het totaal van
+   * vorig jaar als apart (en groter) doel. De balk loopt tot het record van
+   * vorig jaar, of tot het volgende tussendoel zodra dat record gebroken is. */
+  function toonDoelen(s, eerste) {
     const L = s.totaal_ml / 1000;
-    const stap = cfg.mijlpaal_l;
-    let doel, label, deel;
-    if (cfg.vorig_jaar_l && L < cfg.vorig_jaar_l) {
-      doel = cfg.vorig_jaar_l; label = 'Vorig jaar: ' + fmt0.format(doel) + ' L';
-    } else if (cfg.vorig_jaar_l) {
-      doel = cfg.vorig_jaar_l; label = 'Record! Vorig jaar overtroffen';
-    } else {
-      doel = (Math.floor(L / stap) + 1) * stap; label = 'Op weg naar ' + fmt0.format(doel) + ' L';
-    }
-    deel = Math.min(1, L / doel);
+    const stap = cfg.tussendoel_l;
+    const vj = cfg.vorig_jaar_l || 0;
+    const volgend = (Math.floor(L / stap) + 1) * stap;
+    const einde = Math.max(vj, volgend);
+    let label;
+    if (vj && L >= vj) label = `Record gebroken! Volgend doel ${fmt0.format(volgend)} L`;
+    else if (vj && volgend >= vj) label = `Op weg naar het record van vorig jaar: ${fmt0.format(vj)} L`;
+    else label = `Volgend tussendoel: ${fmt0.format(volgend)} L`;
+    const doel = vj && L < vj ? Math.min(volgend, vj) : volgend;
     $('mb-label').textContent = label;
-    $('mb-rest').textContent = L < doel ? 'nog ' + fmt0.format(Math.ceil(doel - L)) + ' L' : '+' + fmt0.format(L - doel) + ' L';
-    document.body.style.setProperty('--niveau', ((cfg.vorig_jaar_l ? deel : (L % stap) / stap) * 100).toFixed(2) + '%');
-    $('mb-vul').style.width = (cfg.vorig_jaar_l ? deel : (L % stap) / stap) * 100 + '%';
+    $('mb-rest').textContent = 'nog ' + fmt0.format(Math.max(0, Math.ceil(doel - L))) + ' L';
+    $('mb-vul').style.width = Math.min(100, L / einde * 100) + '%';
+
+    /* Streepjes voor elk tussendoel, een ster voor vorig jaar. Enkel hertekenen als de schaal verandert. */
+    const spoor = $('mb-spoor');
+    if (spoor.dataset.einde !== String(einde)) {
+      spoor.dataset.einde = einde;
+      spoor.querySelectorAll('.mb-streep, .mb-vj').forEach(x => x.remove());
+      for (let d = stap; d < einde; d += stap) {
+        if (d === vj) continue;
+        const t = document.createElement('i');
+        t.className = 'mb-streep'; t.style.left = (d / einde * 100) + '%';
+        spoor.append(t);
+      }
+      if (vj) {
+        const v = document.createElement('i');
+        v.className = 'mb-vj'; v.style.left = (vj / einde * 100) + '%';
+        v.title = 'Vorig jaar: ' + fmt0.format(vj) + ' L';
+        spoor.append(v);
+      }
+      const vjOpEinde = vj && vj === einde;
+      $('mb-schaal').innerHTML = `<span>0</span>${vj && !vjOpEinde ? `<span class="mb-schaal-vj" style="left:${vj / einde * 100}%">vorig jaar</span>` : ''}<span${vjOpEinde ? ' class="mb-schaal-eind"' : ''}>${fmt0.format(einde)} L${vjOpEinde ? ' = vorig jaar' : ''}</span>`;
+    }
 
     const idx = Math.floor(L / stap);
-    if (mijlpaalIndex !== null && idx > mijlpaalIndex && !eerste) vier(idx * stap);
+    const recordNu = vj && L >= vj;
+    if (mijlpaalIndex !== null && !eerste) {
+      if (recordNu && !mijlpaalRecord) vier(vj, 'record');
+      else if (idx > mijlpaalIndex) vier(idx * stap, 'tussendoel');
+    }
     mijlpaalIndex = idx;
+    mijlpaalRecord = recordNu;
   }
-  function vier(l) {
+  let mijlpaalRecord = false;
+  function vier(l, soort) {
     const m = $('mijlpaal');
     $('mp-getal').textContent = fmt0.format(l);
+    $('mp-tekst').textContent = soort === 'record' ? 'Record van vorig jaar gebroken!' : 'liter bier gedronken';
+    m.dataset.soort = soort;
     m.hidden = false;
     m.classList.remove('weg');
     clearTimeout(vier.t);
-    vier.t = setTimeout(() => { m.classList.add('weg'); setTimeout(() => { m.hidden = true; }, 600); }, 6500);
+    vier.t = setTimeout(() => { m.classList.add('weg'); setTimeout(() => { m.hidden = true; }, 600); }, soort === 'record' ? 12000 : 6500);
   }
 
   /* ---- Tafeldetail ---- */
@@ -391,12 +456,18 @@
 
   function toonMijn() {
     const m = $('mijn'); if (!m) return;
-    if (!mijnTafel || !laatsteStand) { m.hidden = true; return; }
+    if (!laatsteStand) { m.hidden = true; return; }
+    m.hidden = false;
+    m.classList.toggle('mijn-leeg', !mijnTafel);
+    if (!mijnTafel) { m.textContent = 'Aan welke tafel zit jij? Tik ze aan in het plan.'; return; }
     const t = laatsteStand.tafels[mijnTafel] || { ml: 0 };
     m.hidden = false;
     m.innerHTML = `<span class="mijn-label">Jouw tafel</span><b>Tafel ${mijnTafel}</b><span class="mijn-liter">${liter(t.ml)} L</span><span class="mijn-rang">${t.ml ? '#' + rangVan[mijnTafel] : ''}</span>`;
   }
-  $('mijn')?.addEventListener('click', () => mijnTafel && openDetail(mijnTafel, tafelEls[mijnTafel]?.g));
+  $('mijn')?.addEventListener('click', () => {
+    if (mijnTafel) openDetail(mijnTafel, tafelEls[mijnTafel]?.g);
+    else $('kaart').scrollIntoView({ behavior: verminderBeweging ? 'auto' : 'smooth', block: 'start' });
+  });
 
   /* ---- Status ---- */
   function onStatus(staat, tekst) {
@@ -423,7 +494,6 @@
   }
 
   /* ---- Start ---- */
-  zetThema(cfg.thema);
   bouwPlannen();
   tekenTeller(0);
   if (cfg.bron === 'demo') {

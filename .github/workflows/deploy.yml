@@ -1,0 +1,72 @@
+name: Testen en online zetten
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lokale Worker starten
+        run: |
+          echo "KASSA_TOKEN=ci-test-token" > .dev.vars
+          npx wrangler dev --port 8787 --ip 127.0.0.1 > wrangler.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8787/api/gezondheid && exit 0
+            sleep 1
+          done
+          cat wrangler.log
+          exit 1
+
+      - name: Integratietest (token, idempotentie, storno, stand, WebSocket)
+        run: node tools/test.mjs http://127.0.0.1:8787 ci-test-token
+
+      - name: Browser voor de schermcontrole
+        run: npx playwright install --with-deps chromium
+
+      - name: Schermcontrole (gsm 360/375/430 px, tablet, laptop, beamer)
+        run: node tools/schermcheck.mjs http://127.0.0.1:8787 schermcheck
+
+      - name: Screenshots bewaren
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: schermcheck
+          path: schermcheck/
+          retention-days: 14
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Deploy met Wrangler
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          secrets: |
+            KASSA_TOKEN
+        env:
+          KASSA_TOKEN: ${{ secrets.KASSA_TOKEN }}

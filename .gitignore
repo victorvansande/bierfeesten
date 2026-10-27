@@ -2,3 +2,4 @@ node_modules
 .dev.vars
 .wrangler
 bridge/.wachtrij*.jsonl
+schermcheck/
