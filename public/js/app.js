@@ -13,8 +13,6 @@
   const fmt0 = new Intl.NumberFormat('nl-BE', { maximumFractionDigits: 0 });
   const liter = ml => fmt1.format(ml / 1000);
 
-  let mijnTafel = null;
-  try { mijnTafel = localStorage.getItem('bf-mijn-tafel'); } catch {}
 
   /* ---- Plattegrond ---- */
   /* Op smalle schermen wordt de lege middenzone van de grote zaal (tussen de
@@ -100,7 +98,6 @@
       const l2 = maakTekst('t-tekst t-tekst-op-vul', { 'clip-path': `url(#${id})` });
       const title = el('title', {}, g);
       tafelEls[nr] = { g, vul, clip, l1, l2, w, h, title, laatsteMl: -1 };
-      if (nr === mijnTafel) g.classList.add('t-mijn');
     }
     return breedte;
   }
@@ -227,7 +224,7 @@
     toonRecent(s);
     tekenVerloop();
     toonDoelen(s, eerste);
-    toonMijn();
+    toonDagen(s);
   }
 
   function toonTafels(s, eerste) {
@@ -425,7 +422,6 @@
     $('td-n').textContent = fmt0.format(t.n);
     $('td-deel').textContent = s.totaal_ml ? fmt1.format(t.ml / s.totaal_ml * 100) + ' %' : '–';
     $('td-laatst').textContent = t.laatst ? geleden(t.laatst) + (geleden(t.laatst) === 'nu' || /:/.test(geleden(t.laatst)) ? '' : ' geleden') : 'nog niets';
-    $('td-volg').textContent = mijnTafel === openNr ? 'Niet meer volgen' : 'Dit is mijn tafel';
   }
   function sluitDetail() {
     $('tafel-detail').hidden = true;
@@ -437,7 +433,7 @@
   document.addEventListener('click', e => {
     const g = e.target.closest('.tafel');
     if (g) { openDetail(g.dataset.nr, g); return; }
-    if (!e.target.closest('#tafel-detail') && !e.target.closest('#ranglijst') && !e.target.closest('#mijn')) { if (openNr) sluitDetail(); }
+    if (!e.target.closest('#tafel-detail') && !e.target.closest('#ranglijst')) { if (openNr) sluitDetail(); }
   });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && openNr) sluitDetail();
@@ -446,28 +442,50 @@
     if (e.key === 'f' && !e.target.closest('input,textarea')) document.documentElement.requestFullscreen?.().catch(() => {});
   });
   $('td-sluit').addEventListener('click', sluitDetail);
-  $('td-volg').addEventListener('click', () => {
-    mijnTafel = mijnTafel === openNr ? null : openNr;
-    try { mijnTafel ? localStorage.setItem('bf-mijn-tafel', mijnTafel) : localStorage.removeItem('bf-mijn-tafel'); } catch {}
-    document.querySelectorAll('.tafel.t-mijn').forEach(g => g.classList.remove('t-mijn'));
-    if (mijnTafel) tafelEls[mijnTafel]?.g.classList.add('t-mijn');
-    vulDetail(); toonMijn();
-  });
-
-  function toonMijn() {
-    const m = $('mijn'); if (!m) return;
-    if (!laatsteStand) { m.hidden = true; return; }
-    m.hidden = false;
-    m.classList.toggle('mijn-leeg', !mijnTafel);
-    if (!mijnTafel) { m.textContent = 'Aan welke tafel zit jij? Tik ze aan in het plan.'; return; }
-    const t = laatsteStand.tafels[mijnTafel] || { ml: 0 };
-    m.hidden = false;
-    m.innerHTML = `<span class="mijn-label">Jouw tafel</span><b>Tafel ${mijnTafel}</b><span class="mijn-liter">${liter(t.ml)} L</span><span class="mijn-rang">${t.ml ? '#' + rangVan[mijnTafel] : ''}</span>`;
+  /* ---- Per feestdag ----
+   * De server telt per feestdag (06:00 tot 06:00 Belgische tijd), zodat een nacht tot 2u
+   * nog bij de dag ervoor hoort. Hier enkel tonen: weekdag, liters, en welke dag vandaag is. */
+  const weekdag = d => { const w = new Date(d + 'T12:00:00').toLocaleDateString('nl-BE', { weekday: 'long' }); return w[0].toUpperCase() + w.slice(1); };
+  function toonDagen(s) {
+    const ul = $('dagen');
+    const dagen = s.dagen || [];
+    ul.hidden = !dagen.length;
+    ul.replaceChildren(...dagen.map(({ dag, ml }) => {
+      const li = document.createElement('li');
+      const nu = dag === s.vandaag;
+      if (nu) li.className = 'dag-nu';
+      li.innerHTML = `<span class="dag-naam">${weekdag(dag)}${nu ? ' <small>vandaag</small>' : ''}</span><span class="dag-l">${liter(ml)} L</span>`;
+      return li;
+    }));
   }
-  $('mijn')?.addEventListener('click', () => {
-    if (mijnTafel) openDetail(mijnTafel, tafelEls[mijnTafel]?.g);
-    else $('kaart').scrollIntoView({ behavior: verminderBeweging ? 'auto' : 'smooth', block: 'start' });
+
+  /* ---- Delen met een QR-code ----
+   * Wie de site al open heeft, toont de code aan iemand anders, die hem scant.
+   * De code wordt in de browser gemaakt (qrcode-generator, MIT), zonder externe dienst. */
+  const deelUrl = () => cfg.deel_url || (location.origin + location.pathname);
+  function openDeel() {
+    const url = deelUrl();
+    const qr = qrcode(0, 'M');
+    qr.addData(url);
+    qr.make();
+    $('deel-qr').innerHTML = qr.createSvgTag({ cellSize: 8, margin: 2, scalable: true, alt: 'QR-code naar ' + url });
+    $('deel-url').textContent = url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    $('deel-delen').hidden = !navigator.share;
+    $('deel').hidden = false;
+    $('deel-sluit').focus({ preventScroll: true });
+  }
+  function sluitDeel() { $('deel').hidden = true; $('deel-knop').focus({ preventScroll: true }); }
+  $('deel-knop').addEventListener('click', openDeel);
+  $('deel-sluit').addEventListener('click', sluitDeel);
+  $('deel').addEventListener('click', e => { if (e.target === $('deel')) sluitDeel(); });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && !$('deel').hidden) sluitDeel(); });
+  $('deel-kopieer').addEventListener('click', async () => {
+    const knop = $('deel-kopieer');
+    try { await navigator.clipboard.writeText(deelUrl()); knop.textContent = 'Gekopieerd'; }
+    catch { getSelection().selectAllChildren($('deel-url')); knop.textContent = 'Selecteer en kopieer'; }
+    setTimeout(() => { knop.textContent = 'Kopieer link'; }, 2500);
   });
+  $('deel-delen').addEventListener('click', () => navigator.share?.({ title: 'Herentalse Bierfeesten live', url: deelUrl() }).catch(() => {}));
 
   /* ---- Status ---- */
   function onStatus(staat, tekst) {

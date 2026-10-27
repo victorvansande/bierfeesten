@@ -7,6 +7,9 @@
 (function () {
   const EMMER_MS = 5 * 60 * 1000;
   const EMMERS = 48;
+  /* Zelfde feestdag-indeling als de server: 06:00 tot 06:00 Belgische tijd. */
+  const DAG = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Brussels', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const feestdag = ts => DAG.format(new Date(ts - 6 * 3600000));
 
   class LiveBron {
     constructor(api, onStand, onStatus) {
@@ -93,6 +96,7 @@
       this.som = Object.values(this.dorst).reduce((a, b) => a + b, 0);
       this.stand = { v: 1, editie: 'demo', totaal_ml: 0, zonder_tafel_ml: 0, bestellingen: 0, tafels: {}, recent: [], verloop: null, bijgewerkt: Date.now(), server_tijd: Date.now() };
       this.emmers = new Map();
+      this.dagen = {};
     }
     kiesTafel() {
       let r = Math.random() * this.som;
@@ -119,6 +123,8 @@
       s.bestellingen++;
       const e = Math.floor(ts / EMMER_MS) * EMMER_MS;
       this.emmers.set(e, (this.emmers.get(e) || 0) + totaal);
+      const d = feestdag(ts);
+      this.dagen[d] = (this.dagen[d] || 0) + totaal;
       if (!stil) {
         s.recent.unshift({ t: tafel, ml: totaal, p: (aantal > 1 ? aantal + ' × ' : '') + naam, ts });
         s.recent.length = Math.min(s.recent.length, 12);
@@ -130,6 +136,8 @@
       const ml = [];
       for (let e = begin; e <= nu; e += EMMER_MS) ml.push(this.emmers.get(e) || 0);
       this.stand.verloop = { emmer_ms: EMMER_MS, begin, ml };
+      this.stand.dagen = Object.entries(this.dagen).sort().map(([dag, ml]) => ({ dag, ml }));
+      this.stand.vandaag = feestdag(nu);
       this.stand.bijgewerkt = this.stand.server_tijd = nu;
       this.onStand(JSON.parse(JSON.stringify(this.stand)));
     }
@@ -139,6 +147,13 @@
        * avondpieken rond 80 à 90 L. Vier uur voorgeschiedenis met zo'n avondcurve:
        * 0,35 tot 1,85 bestellingen per minuut van gemiddeld ~0,7 L. */
       const nu = Date.now();
+      /* Gisteren: een volledige feestdag van ±600 L (12u tot 1u30), stil vooraf ingeladen. */
+      const gisteren = new Date(nu - 24 * 3600000);
+      gisteren.setHours(12, 0, 0, 0);
+      for (let i = 0; i < 860; i++) {
+        const u = Math.random() ** 0.7 * 13.5;   // drukker naar de avond toe
+        this.bestel(gisteren.getTime() + u * 3600000, true);
+      }
       for (let m = 240; m > 0; m -= 0.5) {
         const ts = nu - m * 60000 + Math.random() * 30000;
         const perMinuut = 0.35 + Math.sin(((240 - m) / 240) * Math.PI * 0.85) * 1.5;

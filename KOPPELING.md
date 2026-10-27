@@ -2,6 +2,23 @@
 
 Dit document is voor wie het kassasysteem bouwde. Het beschrijft het enige wat de kassa moet doen: bestellingen doorsturen naar één HTTP-endpoint. De rest (opslag, totalen, live verspreiding naar beamer en gsm's) gebeurt aan de kant van de teller.
 
+## Wat al vastligt
+
+- **Een bier telt bij de bestelling**, niet bij het afrekenen. De kassa stuurt dus best elke bestelling door op het moment dat ze ingegeven wordt.
+- **Alleen bier telt.** Frisdrank, wijn en andere dranken stuurt de kassa niet door (of de teller moet ze kunnen herkennen, zie vraag 2 hieronder).
+- **Elke bestelling heeft een tafel** (1 t/m 71). Aan de toog wordt niet besteld; alles gaat via de garçons en de kassa.
+- **De kassa heeft internet** in de zaal: rechtstreeks doorsturen naar de teller is de eenvoudigste weg. De brug in `bridge/` is enkel nodig als je liever een wachtrij naast de kassa draait.
+- **Testmoment: vrijdag**, vóór de opening. Daarvoor bestaat een aparte testeditie (zie onderaan), zodat de echte telling leeg blijft.
+- **Live:** https://bierfeesten.victorvansande.workers.dev. De token (`KASSA_TOKEN`) krijg je van Victor.
+
+## Vragen aan jou
+
+1. **Hoe stuurt de kassa het liefst door?** Per bestelling meteen (aanbevolen), in groepjes, of als totaalstand per tafel?
+2. **Hoe herkent de kassa bier?** Stuurt ze enkel bier door, of stuurt ze alles en filteren we aan de kant van de teller op productcode? In het tweede geval hebben we een lijst nodig met de codes van de bieren.
+3. **Kent de kassa het volume per product** (ml), of enkel een productcode? Dan zet ik de omzettabel aan de kant van de teller (`PRODUCTEN`).
+4. **Wat is een stabiele unieke sleutel per bestellijn** in de kassa (bv. bonnummer + lijnnummer)? Die maakt opnieuw versturen veilig.
+5. **Kan een bestelling achteraf geannuleerd of gewijzigd worden**, en zo ja, kan de kassa dat als storno doorsturen?
+
 ## In het kort
 
 ```
@@ -85,7 +102,7 @@ Kan de kassa zelf HTTP-oproepen doen en heeft ze een eigen wachtrij, dan is de b
 
 | Endpoint | Wat |
 |---|---|
-| `GET /api/stand` | Volledige stand als JSON. Publiek, CORS open. |
+| `GET /api/stand` | Volledige stand als JSON. Publiek, CORS open. Bevat ook `dagen` (liters per feestdag, 06:00 tot 06:00 Belgische tijd) en `vandaag`. |
 | `GET /api/live` | WebSocket. Stuurt bij verbinden en na elke wijziging (hoogstens ~3 keer per seconde) de volledige stand: `{ "type": "stand", "stand": { ... } }`. Berichten van kijkers worden genegeerd. |
 | `?editie=2025` | Op beide: een andere editie bekijken. Elke editie heeft een eigen, gescheiden telling. |
 

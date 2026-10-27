@@ -22,10 +22,18 @@ Project van Victor (KSA Herentals). Live liters bier per tafel en totaal, gevoed
 ## Feiten
 
 - Open twee dagen van 12u tot ±1u à 2u (~27 uur), samen ±1.200 L. Gemiddeld ±45 L/u, avondpieken ±80 à 90 L/u. Demo volgt die verhoudingen.
-- Vorig jaar: zeker 1.000 L (`vorig_jaar_l`). Tussendoelen per 250 L.
+- Vorig jaar: zeker 1.000 L (`vorig_jaar_l`), precies getal volgt. Tussendoelen per 250 L.
+- Een bier telt bij de bestelling. Alleen bier telt. Elke bestelling heeft een tafel (geen toogverkoop). De kassa heeft internet. Testmoment met de kassa: vrijdag vóór de opening.
+- Tafels wisselen vaak van groep (zoals een café): ranglijst is oké, geen namen bij tafels, geen "mijn tafel"-functie (bewust geschrapt).
+- Wellicht geen beamer; de site is vooral voor gsm's. Geen geluid. Donkere zaal, gele achtergrond is oké.
+- Teller over het weekend én per feestdag (06:00 tot 06:00 Belgische tijd).
 - Tuinzaal ligt links van de grote zaal; de twee deuren rechts in de tuinzaal sluiten aan op de twee deuren links in de grote zaal (uitlijning in `zaal.js`).
 
-## Open punten
+## Open punten (Victor herinneren)
 
-- Hoe het kassasysteem koppelt (push per bestelling, absolute stand of brug): nog navragen bij de bouwer. Contract staat in KOPPELING.md.
-- Productlijst met volumes, als de kassa geen ml meestuurt.
+- Precies aantal liter van vorig jaar.
+- Frisdrank en wijn: nu alleen bier; later eventueel filteren of apart tonen. Victor wil hier later op terugkomen.
+- Eigen domein (nu workers.dev).
+- Bierlijst met formaten (voorlopig, niets definitiefs mee doen).
+- Antwoorden van de bouwer van de kassa op de vragen in KOPPELING.md.
+- Na het feest: eindstand en archief per editie (later).

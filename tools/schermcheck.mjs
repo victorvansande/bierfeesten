@@ -61,6 +61,13 @@ for (const f of FORMATEN) {
     const d = await p.evaluate(() => { const e = document.getElementById('tafel-detail'); const b = e.getBoundingClientRect(); return { open: !e.hidden, binnen: b.left >= 0 && b.right <= innerWidth + 0.5 && b.bottom <= innerHeight + 0.5, titel: document.getElementById('td-titel').textContent }; });
     meld(d.open && d.binnen && d.titel === 'Tafel 23', `${f.naam}: tik op tafel 23 opent detailblad binnen het scherm`);
     await p.locator('#td-sluit').tap();
+    /* De QR-knop opent een scanbare code die binnen het scherm past. */
+    await p.locator('#deel-knop').tap();
+    await p.waitForTimeout(300);
+    const q = await p.evaluate(() => { const k = document.querySelector('.deel-kaart').getBoundingClientRect(); const c = document.querySelector('#deel-qr svg')?.getBoundingClientRect(); return { open: !document.getElementById('deel').hidden, binnen: k.left >= 0 && k.right <= innerWidth + 0.5 && k.top >= 0 && k.bottom <= innerHeight + 0.5, qr: c ? Math.round(c.width) : 0 }; });
+    meld(q.open && q.binnen && q.qr >= 180, `${f.naam}: QR-knop toont een code van ${q.qr} px (≥ 180) volledig in beeld`);
+    if (f.naam === 'gsm') await p.screenshot({ path: `${MAP}/gsm-qr.png` });
+    await p.locator('#deel-sluit').tap();
   }
   if (f.beamer) {
     const b = await p.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1);

@@ -51,6 +51,17 @@ r = await post({ stand: { tafels: { 12: 2.5, 40: 1.2 } } });
 s = await stand();
 ok(s.tafels['12'].ml === 2500 && s.tafels['40'].ml === 1200 && s.tafels['12'].n === 1, 'absolute stand per tafel zet correcties zonder bestellingen te verdubbelen');
 
+/* Per feestdag: 06:00 tot 06:00 Belgische tijd. 01:30 's nachts telt nog bij de vorige dag. */
+r = await post({ bestellingen: [
+  { id: 'd1', tafel: 7, ml: 330, tijd: '2026-10-02T15:00:00+02:00' },
+  { id: 'd2', tafel: 7, ml: 330, tijd: '2026-10-03T01:30:00+02:00' },
+  { id: 'd3', tafel: 7, ml: 250, tijd: '2026-10-03T13:00:00+02:00' }
+] });
+s = await stand();
+const dag = Object.fromEntries(s.dagen.map(d => [d.dag, d.ml]));
+ok(dag['2026-10-02'] === 660 && dag['2026-10-03'] === 250, 'liters per feestdag (nacht telt bij de vorige dag): ' + JSON.stringify(dag));
+ok(typeof s.vandaag === 'string' && /^\d{4}-\d\d-\d\d$/.test(s.vandaag), 'stand geeft de huidige feestdag mee');
+
 await new Promise(r => setTimeout(r, 700));
 const laatste = berichten.at(-1)?.stand;
 ok(berichten.length >= 2 && laatste?.totaal_ml === s.totaal_ml, `WebSocket-kijker kreeg ${berichten.length} updates, laatste stand klopt`);

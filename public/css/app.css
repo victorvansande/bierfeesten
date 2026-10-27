@@ -152,17 +152,40 @@ button { font: inherit; color: inherit; }
 .vl-uurlabel { font: 400 12px var(--f-kop); fill: var(--inkt); text-anchor: middle; letter-spacing: .04em; }
 .vl-piek { font: 700 11px var(--f-data); fill: var(--inkt); }
 
-/* Jouw tafel */
-.mijn {
-  display: flex; align-items: baseline; gap: 10px;
-  border: 2px solid var(--lijn); background: var(--paneel);
-  padding: 8px 14px; cursor: pointer; font: 15px var(--f-tekst);
+/* Liters per feestdag */
+.dagen { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 22px; }
+.dagen li { display: flex; align-items: baseline; gap: 8px; font: 14px var(--f-tekst); color: var(--inkt-zacht); }
+.dag-naam small { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); font-weight: 700; }
+.dag-l { font: 400 22px/1 var(--f-kop); color: var(--inkt-zacht); font-variant-numeric: tabular-nums; }
+.dag-nu, .dag-nu .dag-l { color: var(--inkt); }
+
+/* Delen met QR-code */
+.deel-knop {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 2px solid var(--lijn); background: var(--inkt); color: var(--bg);
+  font: 700 14px var(--f-tekst); padding: 10px 14px; min-height: 44px; cursor: pointer;
 }
-.mijn[hidden] { display: none; }
-.mijn-label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--inkt-zacht); }
-.mijn-liter { font: 400 22px var(--f-kop); }
-.mijn-rang { color: var(--accent); font-weight: 700; }
-.mijn.mijn-leeg { font-size: 14px; border-style: dashed; color: var(--inkt); }
+.deel {
+  position: fixed; inset: 0; z-index: 35;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--inkt) 55%, transparent);
+  padding-block: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.deel-kaart {
+  position: relative; width: min(100%, 360px);
+  background: var(--bg); border: 3px solid var(--lijn); box-shadow: 8px 8px 0 var(--inkt);
+  padding: 22px 20px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
+}
+.deel-kaart h2 { margin: 0; font: 400 26px/1.1 var(--f-kop); text-transform: uppercase; letter-spacing: .03em; }
+.deel-kaart p { margin: 0; font-size: 14px; color: var(--inkt-zacht); }
+.deel-qr { width: min(100%, 260px); aspect-ratio: 1; background: #FFF; padding: 6px; border: 2px solid var(--lijn); }
+.deel-qr svg { display: block; width: 100%; height: 100%; }
+.deel-url { font: 700 13px var(--f-tekst); word-break: break-all; user-select: all; }
+.deel-knoppen { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: 100%; }
+.deel-knoppen button { flex: 1 1 130px; min-height: 44px; border: 2px solid var(--lijn); background: var(--tafel); font: 700 14px var(--f-tekst); cursor: pointer; }
+.deel-knoppen button:first-child { background: var(--inkt); color: var(--bg); }
 
 /* Zalen */
 .zaal-kaart { display: flex; flex-direction: column; gap: 8px; min-width: 0; background: var(--paneel); }
@@ -203,7 +226,6 @@ button { font: inherit; color: inherit; }
 .t-tekst-op-vul .t-nr, .t-tekst-op-vul .t-liter { fill: var(--vul-tekst); }
 .t-tekst { pointer-events: none; }
 .tafel:hover .t-rand, .tafel:focus-visible .t-rand, .t-open .t-rand { stroke: var(--accent); stroke-width: 4; }
-.t-mijn .t-rand { stroke: var(--accent); stroke-width: 4; stroke-dasharray: 6 3; }
 .t-tik .t-blad { animation: tik 1.4s ease-out; }
 @keyframes tik { 0% { fill: var(--accent); } 100% { fill: var(--tafel); } }
 
@@ -282,7 +304,6 @@ li.leeg { color: var(--inkt-zacht); font-style: italic; padding-block: 8px; curs
 .td-feiten div { display: flex; flex-direction: column; }
 .td-feiten dt { font-size: 12px; color: var(--inkt-zacht); }
 .td-feiten dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
-.td-volg { width: 100%; border: 2px solid var(--lijn); background: var(--inkt); color: var(--bg); padding: 10px; font-weight: 700; cursor: pointer; }
 
 /* Mijlpaal */
 .mijlpaal {
@@ -364,7 +385,7 @@ li.leeg { color: var(--inkt-zacht); font-style: italic; padding-block: 8px; curs
     padding-left: max(2vw, env(safe-area-inset-left, 0px));
     padding-right: max(2vw, env(safe-area-inset-right, 0px));
   }
-  .mijn { display: none !important; }
+  .deel-knop { display: none; }
   #blok-recent { min-height: 0; overflow: hidden; }
   .zaal-kaart { min-height: 0; height: 100%; }
   .plan { flex: 1; min-height: 0; }

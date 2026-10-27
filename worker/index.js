@@ -20,6 +20,11 @@ const RECENT = 12;                 // laatste bestellingen in de stand
 const EMMER_MS = 5 * 60 * 1000;    // emmers van 5 minuten voor het verloop
 const EMMERS = 48;                 // 4 uur verloop
 const UITZEND_MS = 300;            // hoogstens ~3 uitzendingen per seconde
+/* Een feestdag loopt van 06:00 tot 06:00 Belgische tijd: de Bierfeesten zijn open van
+ * 12u tot ±1u à 2u, dus wat na middernacht gedronken wordt, telt nog bij die dag. */
+const DAGGRENS_UUR = 6;
+const DAGFORMAAT = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Brussels', year: 'numeric', month: '2-digit', day: '2-digit' });
+const feestdag = ts => DAGFORMAAT.format(new Date(ts - DAGGRENS_UUR * 3600000));
 
 export default {
   async fetch(req, env) {
@@ -67,6 +72,12 @@ export class Telling {
     }
     this.recent = [...this.sql.exec(`SELECT id, tafel, ml, product, ts FROM bestelling WHERE storno = 0 AND ml > 0 AND product IS NOT 'standcorrectie' ORDER BY ts DESC LIMIT ${RECENT}`)]
       .map(r => ({ id: r.id, t: r.tafel, ml: r.ml, p: r.product, ts: r.ts }));
+    /* Liters per feestdag: per uur optellen in SQL, daarna per dag in JS (SQLite kent geen tijdzones). */
+    this.dagen = {};
+    for (const r of this.sql.exec('SELECT (ts / 3600000) AS u, SUM(ml) AS ml FROM bestelling WHERE storno = 0 GROUP BY u')) {
+      const d = feestdag(Math.floor(r.u) * 3600000 + 1800000);
+      this.dagen[d] = (this.dagen[d] || 0) + r.ml;
+    }
     this.emmers = new Map();
     const vanaf = Date.now() - EMMERS * EMMER_MS;
     for (const r of this.sql.exec('SELECT (ts / ?) AS e, SUM(ml) AS ml FROM bestelling WHERE storno = 0 AND ts >= ? GROUP BY e', EMMER_MS, vanaf)) {
@@ -90,6 +101,8 @@ export class Telling {
     this.boekTotaal(b.tafel, b.ml, b.correctie ? 0 : 1, b.ts);
     const e = Math.floor(b.ts / EMMER_MS) * EMMER_MS;
     this.emmers.set(e, (this.emmers.get(e) || 0) + b.ml);
+    const d = feestdag(b.ts);
+    this.dagen[d] = (this.dagen[d] || 0) + b.ml;
     if (b.ml > 0 && !b.correctie) {
       this.recent.unshift({ id: b.id, t: b.tafel, ml: b.ml, p: b.product, ts: b.ts });
       this.recent.length = Math.min(this.recent.length, RECENT);
@@ -111,6 +124,8 @@ export class Telling {
       tafels: this.tafels,
       recent: this.recent.map(({ id, ...r }) => r),
       verloop: { emmer_ms: EMMER_MS, begin, ml: verloop },
+      dagen: Object.entries(this.dagen).filter(([, ml]) => ml !== 0).sort().map(([dag, ml]) => ({ dag, ml })),
+      vandaag: feestdag(nu),
       bijgewerkt: this.bijgewerkt,
       server_tijd: nu
     };
@@ -193,6 +208,8 @@ export class Telling {
       this.boekTotaal(rij.tafel, -rij.ml, -1, 0);
       const e = Math.floor(rij.ts / EMMER_MS) * EMMER_MS;
       if (this.emmers.has(e)) this.emmers.set(e, this.emmers.get(e) - rij.ml);
+      const d = feestdag(rij.ts);
+      this.dagen[d] = (this.dagen[d] || 0) - rij.ml;
       resultaat.aanvaard++;
     }
     if (storno.length) this.recent = this.recent.filter(r => !storno.map(String).includes(r.id));

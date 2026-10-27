@@ -8,5 +8,6 @@ window.BF_CONFIG = {
   api: '',               // leeg = zelfde domein; anders bv. 'https://bierfeesten.example.workers.dev'
   tussendoel_l: 250,     // elke 250 L een feestmoment op de beamer
   vorig_jaar_l: 1000,    // record van vorig jaar ("zeker 1.000 L"): apart doel met eigen feestmoment
-  plan_inkorten: true    // lege middenzone van de grote zaal smaller tekenen (met breuklijn)
+  plan_inkorten: true,   // lege middenzone van de grote zaal smaller tekenen (met breuklijn)
+  deel_url: ''           // adres in de QR-code; leeg = het adres van deze pagina
 };
