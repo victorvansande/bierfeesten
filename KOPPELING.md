@@ -18,6 +18,8 @@ Dit document is voor wie het kassasysteem bouwde. Het beschrijft het enige wat d
 3. **Kent de kassa het volume per product** (ml), of enkel een productcode? Dan zet ik de omzettabel aan de kant van de teller (`PRODUCTEN`).
 4. **Wat is een stabiele unieke sleutel per bestellijn** in de kassa (bv. bonnummer + lijnnummer)? Die maakt opnieuw versturen veilig.
 5. **Kan een bestelling achteraf geannuleerd of gewijzigd worden**, en zo ja, kan de kassa dat als storno doorsturen?
+6. **Tapbier van een vat**: hoeveel ml is één glas (33 cl?), en stuurt de kassa dat volume per glas mee?
+7. **Alcoholvrij bier** (11 op de voorlopige lijst): telt dat mee als bier? Dat beslist Victor; de kassa moet het wel kunnen onderscheiden.
 
 ## In het kort
 
@@ -37,15 +39,17 @@ Antwoord:
 { "aanvaard": 1, "dubbel": 0, "geweigerd": [], "totaal_ml": 1234560 }
 ```
 
+Staat een tafelnummer niet op het plan (1 t/m 71), dan telt de bestelling wel mee in het totaal, maar komt er een extra veld `waarschuwingen` bij, zodat een tikfout in de kassa op het testmoment meteen opvalt.
+
 ## Velden per bestelling
 
 | Veld | Verplicht | Betekenis |
 |---|---|---|
 | `id` | ja | Unieke sleutel per bestellijn, max. 120 tekens. Een id die de server al kent wordt genegeerd (`dubbel`), dus opnieuw versturen na een time-out is altijd veilig. Voorbeeld: `bonnummer-lijnnummer`. |
 | `tafel` | nee | Tafelnummer 1 t/m 71 (getal of tekst, `"Tafel 23"` mag ook). Leeg, `null` of `0` = verkoop zonder tafel (toog); telt mee in het totaal, niet op het plan. |
-| volume | ja, één van | `ml`, `cl` of `liter`: volume **per stuk**. Of `product`: een code die in de lijst `PRODUCTEN` van de server staat (zie onder). |
+| volume | ja, één van | `ml`, `cl` of `liter`: volume **per stuk** (bij tapbier: per glas). Of `product`: een code die in de lijst `PRODUCTEN` van de server staat (zie onder). |
 | `aantal` | nee, standaard 1 | Aantal stuks. Het totale volume is volume per stuk × aantal. |
-| `product` | nee | Naam voor de lijst "Net getapt" op het scherm, bv. `Flesje 33 cl`. |
+| `product` | nee | Naam voor de lijst "Laatste bestellingen" op het scherm, bv. `Flesje 33 cl`. |
 | `tijd` | nee | ISO 8601 of Unix-tijd (seconden of milliseconden). Zonder tijd geldt het ontvangstmoment. Een tijd meer dan 5 minuten in de toekomst wordt vervangen door de servertijd. |
 
 Engelse sleutels werken ook (`table`, `qty`, `events`), zodat er zo weinig mogelijk omgezet moet worden.
@@ -56,7 +60,7 @@ Volumes worden intern als gehele milliliters bewaard, zodat er nooit afrondingsf
 
 Kies wat het best past bij hoe de kassa werkt. Ze zijn combineerbaar met storno's.
 
-**1. Per bestelling (aanbevolen).** De kassa stuurt elke afgerekende bestelling door, één per oproep of in groepjes. Geeft de beste live-ervaring: de lijst "Net getapt" en het verloop per 5 minuten kloppen exact.
+**1. Per bestelling (aanbevolen).** De kassa stuurt elke bestelling door zodra ze ingegeven is, één per oproep of in groepjes. Geeft de beste live-ervaring: de lijst "Laatste bestellingen" en het verloop per 5 minuten kloppen exact.
 
 **2. Storno's.** Wordt een bestelling geannuleerd, stuur dan haar id terug:
 
@@ -110,10 +114,21 @@ Er bestaat bewust geen endpoint om te wissen of te resetten. Een nieuw jaar = `E
 
 ## Testen zonder het echte feest te raken
 
+**Op het testmoment (vrijdag)** stuurt de kassa naar de echte server, maar naar een aparte testeditie. Zo blijft de echte telling leeg:
+
+```
+POST https://bierfeesten.victorvansande.workers.dev/api/kassa?editie=test-vrijdag
+bekijken: https://bierfeesten.victorvansande.workers.dev/?editie=test-vrijdag
+```
+
+Na de test gewoon het `?editie=`-deel weglaten; de testcijfers blijven apart staan.
+
+Lokaal, zonder internet:
+
 ```bash
 npm install
 npm run dev                         # lokale server op http://127.0.0.1:8787 (token: zie .dev.vars)
-node tools/test.mjs                 # 13 controles: token, idempotentie, storno, stand, WebSocket, ...
+node tools/test.mjs                 # 16 controles: token, idempotentie, storno, stand, feestdagen, onbekende tafels, WebSocket
 node tools/simuleer.mjs             # verzonnen bestellingen naar editie "simulatie"
 # bekijk: http://127.0.0.1:8787/?editie=simulatie
 ```

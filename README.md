@@ -20,7 +20,7 @@ kassa ──POST /api/kassa (token)──▶ Cloudflare Worker ──▶ Durable
 
 ## De pagina
 
-- **Gsm eerst** (95% van de bezoekers): teller met liters per dag, tussendoel, QR-knop, dorstigste tafels, plan, net getapt, verloop. Tik op een tafel voor details.
+- **Gsm eerst** (95% van de bezoekers): teller met liters per dag, tussendoel, QR-knop, dorstigste tafels, plan, laatste bestellingen, verloop. Tik op een tafel voor details.
 - **Per dag en over het weekend**: de grote teller telt het weekend, eronder staat elke feestdag apart. Een feestdag loopt van 06:00 tot 06:00, zodat de nacht tot 2u bij de juiste dag hoort.
 - **QR-code delen**: wie de site open heeft, toont een QR-code die iemand anders scant. De code wordt in de browser gemaakt (qrcode-generator, MIT, in `public/js/vendor/`).
 - **Plattegrond**: tafelposities uit de vectorlagen van de tafelplan-pdf's. Op groot scherm één plan, tuinzaal links en grote zaal rechts, uitgelijnd op de twee verbindingsdeuren. Op gsm onder elkaar, met de deuren aangeduid. De lege middenzone van de grote zaal wordt smaller getekend, met een breuklijn (`plan_inkorten` in `config.js`).

@@ -44,9 +44,16 @@
       ws.onopen = () => {
         this.pogingen = 0;
         this.stopPoll();
-        this.hartslag = setInterval(() => { try { ws.send('ping'); } catch {} }, 25000);
+        /* Hartslag: een gsm die van wifi naar 4G wisselt, verliest zijn verbinding soms zonder melding.
+         * Komt er binnen 10 s geen antwoord op een ping, dan sluiten we zelf en verbinden opnieuw. */
+        this.hartslag = setInterval(() => {
+          try { ws.send('ping'); } catch {}
+          clearTimeout(this.pongTimer);
+          this.pongTimer = setTimeout(() => ws.close(), 10000);
+        }, 25000);
       };
       ws.onmessage = e => {
+        clearTimeout(this.pongTimer);
         if (e.data === 'pong') return;
         try {
           const m = JSON.parse(e.data);
@@ -55,6 +62,7 @@
       };
       ws.onclose = () => {
         clearInterval(this.hartslag);
+        clearTimeout(this.pongTimer);
         this.pogingen++;
         if (this.pogingen >= 3) this.terugval();
         /* exponentieel wachten met wat toeval, zodat 300 gsm's niet tegelijk terugkomen */
@@ -80,13 +88,16 @@
     stopPoll() { clearInterval(this.pollTimer); this.pollTimer = null; }
   }
 
-  /* ---- Demo: een geloofwaardige zaterdagavond ---- */
+  /* ---- Demo: een geloofwaardig weekend (gisteren afgelopen, vandaag bezig) ---- */
   class DemoBron {
     constructor(onStand, onStatus) {
       this.onStand = onStand;
       this.onStatus = onStatus;
+      /* Verhoudingen losjes naar de voorlopige bierlijst 2026: vooral flesjes van 33 cl,
+       * tapbier van een vat per glas, en enkele grotere en kleinere flessen. Ter illustratie. */
       this.producten = [
-        ['Flesje 25 cl', 250, 0.55], ['Flesje 33 cl', 330, 0.32], ['Trappist 33 cl', 330, 0.08], ['Fles 75 cl', 750, 0.05]
+        ['Flesje 33 cl', 330, 0.62], ['Tapbier 33 cl', 330, 0.18], ['Flesje 37,5 cl', 375, 0.08],
+        ['Flesje 25 cl', 250, 0.06], ['Fles 75 cl', 750, 0.06]
       ];
       /* Elke tafel krijgt een eigen dorst, zodat er echte koplopers ontstaan. */
       this.dorst = {};
@@ -109,8 +120,7 @@
       return this.producten[0];
     }
     bestel(ts, stil) {
-      const zonderTafel = Math.random() < 0.06;
-      const tafel = zonderTafel ? null : this.kiesTafel();
+      const tafel = this.kiesTafel();   // elke bestelling heeft een tafel: aan de toog wordt niet besteld
       const [naam, ml] = this.kiesProduct();
       const aantal = 1 + Math.floor(Math.random() ** 2 * 4);
       const totaal = ml * aantal;

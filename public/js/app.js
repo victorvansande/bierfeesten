@@ -1,59 +1,83 @@
-/* Herentalse Bierfeesten: weergave van de live telling. */
+/* Herentalse Bierfeesten: weergave van de live telling.
+ *
+ * Alles hier is alleen lezen: de pagina krijgt een volledige stand van de bron
+ * (bron.js) en tekent die. Indeling:
+ *   1. Instellingen en hulpfuncties
+ *   2. Plattegrond
+ *   3. Teller
+ *   4. Kerncijfers, feestdagen, tussendoelen en feestmoment
+ *   5. Ranglijst en laatste bestellingen
+ *   6. Verloop (grafiek)
+ *   7. Tafeldetail
+ *   8. Delen met QR-code
+ *   9. Status, klok, beamer en start
+ */
 (function () {
-  const SVGNS = 'http://www.w3.org/2000/svg';
-  const $ = id => document.getElementById(id);
-
-  /* ---- Instellingen: config.js, enkele zaken overschrijfbaar via de URL ---- */
+  /* ---- 1. Instellingen en hulpfuncties ---- */
   const cfg = Object.assign({}, window.BF_CONFIG);
   const q = new URLSearchParams(location.search);
   if (q.has('demo')) cfg.bron = 'demo';
   const beamer = q.has('beamer');
 
+  const $ = id => document.getElementById(id);
+  const SVGNS = 'http://www.w3.org/2000/svg';
   const fmt1 = new Intl.NumberFormat('nl-BE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const fmt0 = new Intl.NumberFormat('nl-BE', { maximumFractionDigits: 0 });
   const liter = ml => fmt1.format(ml / 1000);
+  const zaalNaam = nr => (ZAAL.zaalVan[nr] === 'tuinzaal' ? 'Tuinzaal' : 'Grote zaal');
+  const verminderBeweging = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const mqGsm = matchMedia('(max-width: 899px)');
+  const mqGroot = matchMedia('(min-width: 1200px) and (min-aspect-ratio: 4/3)');
 
-
-  /* ---- Plattegrond ---- */
-  /* Op smalle schermen wordt de lege middenzone van de grote zaal (tussen de
-   * linker- en rechterrij tafels) samengedrukt. Een gestippelde breuklijn
-   * toont waar dat gebeurt, zodat het plan eerlijk blijft. */
-  const BREUK = { van: 125, tot: 410, nieuw: 72 };
-  function maakFx(zaal, compact) {
-    if (!compact || zaal.id !== 'grote-zaal') return { fx: x => x, breedte: zaal.breedte, breuk: null };
-    const f = BREUK.nieuw / (BREUK.tot - BREUK.van);
-    const fx = x => x <= BREUK.van ? x : x >= BREUK.tot ? x - (BREUK.tot - BREUK.van) + BREUK.nieuw : BREUK.van + (x - BREUK.van) * f;
-    return { fx, breedte: fx(zaal.breedte), breuk: [BREUK.van, BREUK.van + BREUK.nieuw] };
-  }
-  /* Pad met absolute commando's (M L H V A Z) horizontaal herschalen. */
-  function padFx(d, fx) {
-    const delen = d.match(/[MLHVAZ]|-?[\d.]+/g);
-    let uit = '', cmd = '', i = 0, arg = 0;
-    while (i < delen.length) {
-      const t = delen[i++];
-      if (/[A-Z]/.test(t)) { cmd = t; arg = 0; uit += t; continue; }
-      let n = parseFloat(t);
-      if ((cmd === 'M' || cmd === 'L') && arg % 2 === 0) n = fx(n);
-      if (cmd === 'H') n = fx(n);
-      if (cmd === 'A' && arg % 7 === 5) n = fx(n);
-      uit += (arg ? ' ' : '') + Math.round(n * 10) / 10;
-      arg++;
-    }
-    return uit;
-  }
   function el(naam, attrs, ouder) {
     const e = document.createElementNS(SVGNS, naam);
     for (const k in attrs) e.setAttribute(k, attrs[k]);
     if (ouder) ouder.append(e);
     return e;
   }
+  const html = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const uurMin = ts => new Date(ts).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' });
+  /* Korte relatieve tijd: "nu", "3 min geleden", of het uur als het langer dan een uur geleden is. */
+  function geleden(ts) {
+    const s = Math.max(0, (Date.now() - ts) / 1000);
+    if (s < 45) return 'nu';
+    const m = Math.round(s / 60);
+    return m < 60 ? `${m} min geleden` : `om ${uurMin(ts)}`;
+  }
 
-  const tafelEls = {};   // nr -> { g, vul, clip, l1, l2, w, h, title, laatsteMl }
-  const zaalLiterEls = {}; // zaal-id -> [text-elementen]
+  let laatsteStand = null;
+  let rangVan = {};
 
-  /* Eén zaal tekenen in groep `ouder`. Geeft de breedte na eventuele inkorting terug. */
-  function tekenZaal(zaal, ouder, compact, metLabel) {
-    const { fx, breedte, breuk } = maakFx(zaal, compact);
+  /* ---- 2. Plattegrond ----
+   * Groot scherm: één plan met beide zalen naast elkaar, zoals in het echt.
+   * Gsm: elke zaal apart onder elkaar (anders worden de tafels te klein), met
+   * de verbindingsdeuren aangeduid. De lege middenzone van de grote zaal kan
+   * smaller getekend worden; een gestippelde breuklijn toont waar. */
+  const BREUK = { van: 125, tot: 410, nieuw: 64 };   // 64: tafels 38 en 39 (56,5 breed) passen er nog in
+  function maakFx(zaal, inkorten) {
+    if (!inkorten || zaal.id !== 'grote-zaal') return { fx: x => x, breedte: zaal.breedte, breuk: null };
+    const f = BREUK.nieuw / (BREUK.tot - BREUK.van);
+    const fx = x => x <= BREUK.van ? x : x >= BREUK.tot ? x - (BREUK.tot - BREUK.van) + BREUK.nieuw : BREUK.van + (x - BREUK.van) * f;
+    return { fx, breedte: fx(zaal.breedte), breuk: [BREUK.van, BREUK.van + BREUK.nieuw] };
+  }
+  /* Pad met absolute commando's (M L H V A Z) horizontaal herschalen. */
+  function padFx(d, fx) {
+    let uit = '', cmd = '', arg = 0;
+    for (const t of d.match(/[MLHVAZ]|-?[\d.]+/g)) {
+      if (/[A-Z]/.test(t)) { cmd = t; arg = 0; uit += t; continue; }
+      let n = parseFloat(t);
+      if (((cmd === 'M' || cmd === 'L') && arg % 2 === 0) || cmd === 'H' || (cmd === 'A' && arg % 7 === 5)) n = fx(n);
+      uit += (arg ? ' ' : '') + Math.round(n * 10) / 10;
+      arg++;
+    }
+    return uit;
+  }
+
+  const tafelEls = {};     // nr -> { g, vul, clip, l1, l2, h, title, laatsteMl }
+  const zaalSomEls = {};   // zaal-id -> text-element met de liters van die zaal
+
+  function tekenZaal(zaal, ouder, inkorten) {
+    const { fx, breedte, breuk } = maakFx(zaal, inkorten);
     el('rect', { class: 'vloer', x: 0, y: 0, width: breedte, height: zaal.hoogte, rx: 3 }, ouder);
     if (breuk) {
       el('rect', { class: 'breuk-zone', x: breuk[0], y: 0, width: breuk[1] - breuk[0], height: zaal.hoogte }, ouder);
@@ -61,259 +85,270 @@
     }
     for (const e of zaal.elementen) {
       el('path', { class: 'el el-' + e.soort, d: padFx(e.pad, fx) }, ouder);
-      if (e.label) {
-        const [lx, ly] = e.labelPos;
-        const t = el('text', { class: 'el-label el-label-' + e.soort, x: fx(lx), y: ly, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, ouder);
-        if (e.draai) t.setAttribute('transform', `rotate(${e.draai} ${fx(lx)} ${ly})`);
-        t.textContent = e.label;
-      }
+      if (!e.label) continue;
+      const [lx, ly] = e.labelPos;
+      const t = el('text', { class: 'el-label el-label-' + e.soort, x: fx(lx), y: ly, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, ouder);
+      if (e.draai) t.setAttribute('transform', `rotate(${e.draai} ${fx(lx)} ${ly})`);
+      t.textContent = e.label;
     }
-    if (metLabel) {
-      const naam = el('text', { class: 'zaal-naam', x: 2, y: -9 }, ouder);
-      naam.textContent = zaal.naam;
-      const l = el('text', { class: 'zaal-som', x: breedte - 2, y: -9, 'text-anchor': 'end' }, ouder);
-      l.textContent = '0,0 L';
-      (zaalLiterEls[zaal.id] ||= []).push(l);
-    }
+    el('text', { class: 'zaal-naam', x: 2, y: -9 }, ouder).textContent = zaal.naam;
+    zaalSomEls[zaal.id] = el('text', { class: 'zaal-som', x: breedte - 2, y: -9, 'text-anchor': 'end' }, ouder);
+    zaalSomEls[zaal.id].textContent = '0,0 L';
+
     for (const [nr, [x0, y, w, h]] of Object.entries(zaal.tafels)) {
-      const x = fx(x0 + w / 2) - w / 2;
-      const g = el('g', { class: 'tafel', transform: `translate(${x} ${y})`, tabindex: 0, role: 'button', 'data-nr': nr }, ouder);
-      const id = 'clip-' + nr;
-      const cp = el('clipPath', { id }, g);
-      const clip = el('rect', { x: 0, y: h, width: w, height: 0 }, cp);
-      el('rect', { class: 't-blad', x: 0, y: 0, width: w, height: h }, g);
-      const vul = el('rect', { class: 't-vul', x: 0, y: h, width: w, height: 0 }, g);
-      el('rect', { class: 't-rand', x: 0, y: 0, width: w, height: h }, g);
-      const staand = h > w;
-      const ny = staand ? h * 0.36 : h * 0.4, ly = staand ? h * 0.7 : h * 0.77;
-      const maakTekst = (klasse, extra) => {
-        const tg = el('g', Object.assign({ class: klasse }, extra), g);
-        const tn = el('text', { class: 't-nr', x: w / 2, y: ny, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, tg);
-        tn.textContent = nr;
+      const g = el('g', { class: 'tafel', transform: `translate(${fx(x0 + w / 2) - w / 2} ${y})`, tabindex: 0, role: 'button', 'data-nr': nr }, ouder);
+      const clipId = 'clip-' + nr;
+      const clip = el('rect', { x: 0, y: h, width: w, height: 0 }, el('clipPath', { id: clipId }, g));
+      el('rect', { class: 't-blad', width: w, height: h }, g);
+      const vul = el('rect', { class: 't-vul', y: h, width: w, height: 0 }, g);
+      el('rect', { class: 't-rand', width: w, height: h }, g);
+      /* Twee keer dezelfde tekst: één in inkt, één in papierkleur die enkel zichtbaar is waar de tafel "vol" is. */
+      const ny = h > w ? h * 0.36 : h * 0.4, ly = h > w ? h * 0.7 : h * 0.77;
+      const tekst = extra => {
+        const tg = el('g', extra, g);
+        el('text', { class: 't-nr', x: w / 2, y: ny, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, tg).textContent = nr;
         const tl = el('text', { class: 't-liter', x: w / 2, y: ly, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, tg);
         tl.textContent = '0,0';
         return tl;
       };
-      const l1 = maakTekst('t-tekst');
-      const l2 = maakTekst('t-tekst t-tekst-op-vul', { 'clip-path': `url(#${id})` });
-      const title = el('title', {}, g);
-      tafelEls[nr] = { g, vul, clip, l1, l2, w, h, title, laatsteMl: -1 };
+      const l1 = tekst({ class: 't-tekst' });
+      const l2 = tekst({ class: 't-tekst t-tekst-op-vul', 'clip-path': `url(#${clipId})` });
+      tafelEls[nr] = { g, vul, clip, l1, l2, h, title: el('title', {}, g), laatsteMl: -1 };
     }
     return breedte;
   }
 
-  /* Groot scherm: één plan met beide zalen naast elkaar, zoals in het echt.
-   * Gsm: elke zaal apart onder elkaar (anders worden de tafels te klein),
-   * met de verbindingsdeuren aangeduid. */
-  const mqGsm = matchMedia('(max-width: 899px)');
   function bouwPlannen() {
-    const gsm = mqGsm.matches;
-    const houder = $('plan');
-    for (const k in zaalLiterEls) delete zaalLiterEls[k];
-    const m = 10, kop = 30;
+    const m = 10, kop = 30, S = ZAAL.samen;
     const zalen = Object.fromEntries(ZAAL.zalen.map(z => [z.id, z]));
     const svgs = [];
-    if (!gsm) {
-      const S = ZAAL.samen;
+    if (!mqGsm.matches) {
       const tz = zalen['tuinzaal'], gz = zalen['grote-zaal'];
+      const [tx, ty] = S.plaats['tuinzaal'], gy = S.plaats['grote-zaal'][1];
       const svg = el('svg', { role: 'group', 'aria-label': 'Plan van de zaal: tuinzaal links, grote zaal rechts' });
-      const [tx, ty] = S.plaats['tuinzaal'];
-      const [, gy] = S.plaats['grote-zaal'];
-      const gT = el('g', { transform: `translate(${tx} ${ty})` }, svg);
-      const bT = tekenZaal(tz, gT, false, true);
+      const bT = tekenZaal(tz, el('g', { transform: `translate(${tx} ${ty})` }, svg), false);
       const gx = tx + bT + S.muur;
       /* Tussenmuur met de twee doorgangen. */
-      const muurTop = ty, muurBodem = ty + tz.hoogte;
-      let y = muurTop, d = '';
+      let y = ty, d = '';
       for (const [van, tot] of S.doorgangen) { d += `M${bT + S.muur / 2} ${y}V${van}`; y = tot; }
-      d += `M${bT + S.muur / 2} ${y}V${muurBodem}`;
+      d += `M${bT + S.muur / 2} ${y}V${ty + tz.hoogte}`;
       el('path', { class: 'tussenmuur', d, 'stroke-width': S.muur }, svg);
       for (const [van, tot] of S.doorgangen) el('path', { class: 'doorgang', d: `M${bT - 4} ${(van + tot) / 2}H${gx + 4}` }, svg);
-      const gG = el('g', { transform: `translate(${gx} ${gy})` }, svg);
-      const bG = tekenZaal(gz, gG, cfg.plan_inkorten, true);
+      const bG = tekenZaal(gz, el('g', { transform: `translate(${gx} ${gy})` }, svg), cfg.plan_inkorten);
       svg.setAttribute('viewBox', `${-m} ${-kop} ${gx + bG + 2 * m} ${Math.max(gz.hoogte + gy, tz.hoogte + ty) + kop + m}`);
       svgs.push(svg);
     } else {
       for (const id of ['grote-zaal', 'tuinzaal']) {
-        const z = zalen[id];
+        const z = zalen[id], tuin = id === 'tuinzaal';
         const svg = el('svg', { role: 'group', 'aria-label': `Plan ${z.naam}` });
-        const b = tekenZaal(z, el('g', {}, svg), id === 'grote-zaal', true);
+        const b = tekenZaal(z, el('g', {}, svg), !tuin);
         /* Verbindingsdeuren aanduiden: in het echt hangen de zalen hier aan elkaar. */
-        const S = ZAAL.samen, oy = S.plaats[id][1];
+        const oy = S.plaats[id][1];
         for (const [van, tot] of S.doorgangen) {
-          const yy = (van + tot) / 2 - oy;
-          const t = el('text', { class: 'doorgang-label', x: id === 'tuinzaal' ? b - 4 : 4, y: yy, 'text-anchor': id === 'tuinzaal' ? 'end' : 'start', 'dominant-baseline': 'central' }, svg);
-          t.textContent = id === 'tuinzaal' ? 'grote zaal →' : '← tuinzaal';
-          if (id === 'grote-zaal') t.setAttribute('transform', `rotate(-90 4 ${yy}) translate(-22 6)`);
-          if (id === 'tuinzaal') t.setAttribute('transform', `rotate(90 ${b - 4} ${yy}) translate(26 6)`);
+          const yy = (van + tot) / 2 - oy, x = tuin ? b + 9 : -9;   // net buiten de muur, gecentreerd op de deur
+          el('text', { class: 'doorgang-label', x, y: yy, 'text-anchor': 'middle', 'dominant-baseline': 'central', transform: `rotate(${tuin ? 90 : -90} ${x} ${yy})` }, svg)
+            .textContent = tuin ? 'naar grote zaal' : 'naar tuinzaal';
         }
-        svg.setAttribute('viewBox', `${-m} ${-kop} ${b + 2 * m} ${z.hoogte + kop + m}`);
+        svg.setAttribute('viewBox', `${-m - 6} ${-kop} ${b + 2 * m + 12} ${z.hoogte + kop + m}`);   // extra zijmarge voor de deurlabels
         svgs.push(svg);
       }
     }
-    svgs.forEach(s => s.classList.add('plan-svg'));
-    houder.replaceChildren(...svgs);
-    houder.dataset.weergave = gsm ? 'apart' : 'samen';
+    svgs.forEach(s => { s.classList.add('plan-svg'); s.setAttribute('preserveAspectRatio', 'xMidYMin meet'); });   // bovenaan uitlijnen met de andere kolommen
+    $('plan').replaceChildren(...svgs);
+    $('plan').dataset.weergave = mqGsm.matches ? 'apart' : 'samen';
     if (laatsteStand) toonTafels(laatsteStand, true);
-  }
-  mqGsm.addEventListener('change', bouwPlannen);
-
-  /* ---- Teller met rollende cijfers ---- */
-  const teller = $('teller-getal');
-  let tellerWaarde = 0, tellerDoel = 0, tellerVan = 0, tellerStart = 0, tellerAnim = 0;
-  const DUUR = 1400;
-  const verminderBeweging = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function tekenTeller(v) {
-    const tekst = fmt1.format(v / 1000);
-    if (teller.dataset.tekst?.length !== tekst.length) {
-      teller.replaceChildren();
-      for (const ch of tekst) {
-        const s = document.createElement('span');
-        if (/\d/.test(ch)) {
-          s.className = 'c';
-          const rol = document.createElement('span');
-          rol.className = 'rol';
-          rol.textContent = '0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n0';
-          s.append(rol);
-        } else { s.className = 'sep'; s.textContent = ch; }
-        teller.append(s);
-      }
-    }
-    teller.dataset.tekst = tekst;
-    teller.setAttribute('aria-label', tekst + ' liter');
-    /* Kilometerteller: x = deciliters. Elk cijfer draait mee zodra alle lagere cijfers op 9 staan. */
-    const x = v / 100;
-    const cijfers = [...teller.querySelectorAll('.c')].reverse();
-    cijfers.forEach((c, k) => {
-      const macht = 10 ** k;
-      let pos;
-      if (k === 0) pos = x % 10;
-      else {
-        const rest = x % macht;
-        pos = Math.floor(x / macht) % 10 + Math.max(0, rest - (macht - 1));
-      }
-      c.firstChild.style.transform = `translateY(${-pos * (100 / 11)}%)`;
-    });
-  }
-  function animeerTeller(doel) {
-    tellerVan = tellerWaarde; tellerDoel = doel; tellerStart = performance.now();
-    if (verminderBeweging || document.hidden) { tellerWaarde = doel; tekenTeller(doel); return; }
-    cancelAnimationFrame(tellerAnim);
-    const stap = nu => {
-      const t = Math.min(1, (nu - tellerStart) / DUUR);
-      const e = 1 - (1 - t) ** 3;
-      tellerWaarde = tellerVan + (tellerDoel - tellerVan) * e;
-      tekenTeller(tellerWaarde);
-      if (t < 1) tellerAnim = requestAnimationFrame(stap);
-    };
-    tellerAnim = requestAnimationFrame(stap);
-  }
-
-  /* ---- Stand verwerken ---- */
-  let laatsteStand = null;
-  let mijlpaalIndex = null;
-  let rangVan = {};
-
-  function onStand(s) {
-    const eerste = !laatsteStand;
-    laatsteStand = s;
-    animeerTeller(s.totaal_ml);
-    toonTafels(s, eerste);
-    toonKerncijfers(s);
-    toonRanglijst(s);
-    toonRecent(s);
-    tekenVerloop();
-    toonDoelen(s, eerste);
-    toonDagen(s);
   }
 
   function toonTafels(s, eerste) {
+    /* De volste tafel is "vol"; onder 2 L blijft de schaal op 2 L, zodat het begin van de avond niet overdreven oogt. */
     const maxMl = Math.max(2000, ...Object.values(s.tafels).map(t => t.ml));
-    const perZaal = {};
-    const lijst = Object.entries(s.tafels).filter(([nr]) => ZAAL.zaalVan[nr]).sort((a, b) => b[1].ml - a[1].ml);
     rangVan = {};
-    lijst.forEach(([nr], i) => { rangVan[nr] = i + 1; });
+    Object.entries(s.tafels).filter(([nr, t]) => ZAAL.zaalVan[nr] && t.ml > 0)
+      .sort((a, b) => b[1].ml - a[1].ml).forEach(([nr], i) => { rangVan[nr] = i + 1; });
+    const perZaal = {};
     for (const [nr, e] of Object.entries(tafelEls)) {
-      const t = s.tafels[nr] || { ml: 0, n: 0 };
-      const zaal = ZAAL.zaalVan[nr];
-      perZaal[zaal] = (perZaal[zaal] || 0) + t.ml;
-      const niveau = t.ml / maxMl;
-      const hv = e.h * niveau;
-      for (const r of [e.vul, e.clip]) { r.setAttribute('y', e.h - hv); r.setAttribute('height', hv); r.style.y = (e.h - hv) + 'px'; r.style.height = hv + 'px'; }
+      const t = s.tafels[nr] || { ml: 0 };
+      perZaal[ZAAL.zaalVan[nr]] = (perZaal[ZAAL.zaalVan[nr]] || 0) + t.ml;
+      const hv = e.h * t.ml / maxMl;
+      for (const r of [e.vul, e.clip]) {
+        r.setAttribute('y', e.h - hv); r.setAttribute('height', hv);
+        r.style.y = (e.h - hv) + 'px'; r.style.height = hv + 'px';   // CSS-overgang in browsers die dat kennen
+      }
       const tekst = liter(t.ml);
       e.l1.textContent = e.l2.textContent = tekst;
       e.g.setAttribute('aria-label', `Tafel ${nr}: ${tekst} liter`);
       e.title.textContent = `Tafel ${nr}: ${tekst} L`;
-      e.g.classList.toggle('t-top', rangVan[nr] <= 3 && t.ml > 0);
-      e.g.dataset.rang = rangVan[nr] || '';
       if (!eerste && e.laatsteMl >= 0 && t.ml > e.laatsteMl) {
         e.g.classList.remove('t-tik'); void e.g.getBBox(); e.g.classList.add('t-tik');
       }
       e.laatsteMl = t.ml;
     }
-    for (const [id, els] of Object.entries(zaalLiterEls)) for (const x of els) x.textContent = liter(perZaal[id] || 0) + ' L';
+    for (const [id, x] of Object.entries(zaalSomEls)) x.textContent = liter(perZaal[id] || 0) + ' L';
   }
 
+  /* ---- 3. Teller ----
+   * Elk cijfer is een strookje 0-9 dat twee keer herhaald is. Bij een nieuwe waarde
+   * schuift het strookje enkel vooruit naar het volgende voorkomen van het nieuwe
+   * cijfer (9 → 0 gaat dus naar beneden door, niet terug), en springt daarna
+   * onzichtbaar terug naar de eerste helft. Zo staat elk cijfer na een halve
+   * seconde weer recht; er blijft nooit een half cijfer hangen. */
+  const teller = $('teller-getal');
+  const STROOK = '0123456789'.repeat(2).split('').join('\n');
+  function zetCijfer(c, cijfer, direct) {
+    const rol = c.firstChild;
+    let pos = +c.dataset.pos || 0;
+    let doel = cijfer;
+    while (doel < pos) doel += 10;
+    if (doel === pos) return;
+    const schuif = p => { rol.style.transform = `translateY(${-p * 5}%)`; };   // 20 regels = 5% per cijfer
+    if (direct) { rol.style.transition = 'none'; schuif(cijfer); c.dataset.pos = cijfer; return; }
+    rol.style.transition = '';
+    schuif(doel);
+    c.dataset.pos = doel;
+    if (doel >= 10) {
+      /* Na de overgang terug naar de eerste helft. Lees de positie opnieuw: er kan intussen al een nieuwe waarde gekomen zijn. */
+      rol.addEventListener('transitionend', () => {
+        const p = +c.dataset.pos;
+        if (p >= 10) { rol.style.transition = 'none'; schuif(p - 10); c.dataset.pos = p - 10; }
+      }, { once: true });
+    }
+  }
+  function tekenTeller(ml, direct) {
+    const tekst = fmt1.format(ml / 1000);
+    if (teller.dataset.tekst?.length !== tekst.length) {
+      teller.replaceChildren(...[...tekst].map(ch => {
+        const s = document.createElement('span');
+        if (/\d/.test(ch)) { s.className = 'c'; s.dataset.pos = 0; s.append(Object.assign(document.createElement('span'), { className: 'rol', textContent: STROOK })); }
+        else { s.className = 'sep'; s.textContent = ch; }
+        return s;
+      }));
+      direct = true;
+    }
+    teller.dataset.tekst = tekst;
+    teller.setAttribute('aria-label', `${tekst} liter bier`);
+    const cijfers = tekst.replace(/\D/g, '');
+    teller.querySelectorAll('.c').forEach((c, i) => zetCijfer(c, +cijfers[i], direct || verminderBeweging || document.hidden));
+  }
+
+  /* ---- 4. Kerncijfers, feestdagen, tussendoelen en feestmoment ---- */
+  /* Liter per uur over het laatste kwartier (de drie recentste emmers van 5 minuten). */
   function literPerUur(s) {
-    const v = s.verloop; if (!v) return 0;
-    const n = v.ml.length; if (n < 3) return 0;
+    const v = s.verloop, n = v?.ml.length || 0;
+    if (n < 3) return 0;
     const som = v.ml[n - 1] + v.ml[n - 2] + v.ml[n - 3];
     const duur = (s.server_tijd || Date.now()) - (v.begin + (n - 3) * v.emmer_ms);
     return duur > 0 ? som / 1000 / (duur / 3600000) : 0;
   }
-
   function toonKerncijfers(s) {
     $('k-uur').textContent = fmt0.format(literPerUur(s));
     $('k-best').textContent = fmt0.format(s.bestellingen);
   }
 
-  function toonRanglijst(s) {
-    const top = Object.entries(s.tafels).filter(([nr, t]) => ZAAL.zaalVan[nr] && t.ml > 0).sort((a, b) => b[1].ml - a[1].ml).slice(0, 5);
-    const max = top[0]?.[1].ml || 1;
-    $('ranglijst').replaceChildren(...top.map(([nr, t], i) => {
+  /* De server telt per feestdag (06:00 tot 06:00 Belgische tijd): de nacht tot 2u hoort bij de dag ervoor. */
+  const weekdag = d => { const w = new Date(d + 'T12:00:00').toLocaleDateString('nl-BE', { weekday: 'long' }); return w[0].toUpperCase() + w.slice(1); };
+  function toonDagen(s) {
+    const dagen = s.dagen || [];
+    $('dagen').hidden = !dagen.length;
+    $('dagen').replaceChildren(...dagen.map(({ dag, ml }) => {
       const li = document.createElement('li');
-      li.innerHTML = `<span class="rl-rang">${i + 1}</span><span class="rl-naam">Tafel ${nr}<small>${ZAAL.zaalVan[nr] === 'tuinzaal' ? 'Tuinzaal' : 'Grote zaal'}</small></span><span class="rl-liter">${liter(t.ml)} L</span><span class="rl-balk" style="--w:${(t.ml / max * 100).toFixed(1)}%"></span>`;
-      li.addEventListener('click', () => openDetail(nr));
+      const nu = dag === s.vandaag;
+      li.classList.toggle('dag-nu', nu);
+      li.innerHTML = `<span class="dag-naam">${weekdag(dag)}${nu ? ' · vandaag' : ''}</span><span class="dag-l">${liter(ml)} L</span>`;
       return li;
     }));
-    if (!top.length) $('ranglijst').innerHTML = '<li class="leeg">Nog geen bestellingen</li>';
   }
 
-  function geleden(ts) {
-    const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
-    if (s < 45) return 'nu';
-    const m = Math.round(s / 60);
-    if (m < 60) return m + ' min';
-    return new Date(ts).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' });
+  /* Tussendoelen: elke `tussendoel_l` liter een feestmoment, met het record van vorig
+   * jaar als apart doel. De balk loopt tot dat record, of tot het volgende
+   * tussendoel zodra het record gebroken is. */
+  let doelIndex = null, recordGehaald = false;
+  function toonDoelen(s, eerste) {
+    const L = s.totaal_ml / 1000, stap = cfg.tussendoel_l, vj = cfg.vorig_jaar_l || 0;
+    const volgend = (Math.floor(L / stap) + 1) * stap;
+    const einde = Math.max(vj, volgend);
+    const record = vj && L >= vj;
+    const doel = vj && !record ? Math.min(volgend, vj) : volgend;
+    $('mb-label').textContent = record ? `Record gebroken! Volgend doel: ${fmt0.format(volgend)} L`
+      : doel === vj ? `Op naar het record: ${fmt0.format(vj)} L`
+      : `Volgend tussendoel: ${fmt0.format(doel)} L`;
+    $('mb-rest').textContent = `nog ${fmt0.format(Math.max(0, Math.ceil(doel - L)))} L`;
+    $('mb-vul').style.width = Math.min(100, L / einde * 100) + '%';
+
+    /* Streepjes per tussendoel en een ster voor vorig jaar; enkel hertekenen als de schaal verandert. */
+    const spoor = $('mb-spoor');
+    if (spoor.dataset.einde !== String(einde)) {
+      spoor.dataset.einde = einde;
+      spoor.querySelectorAll('i').forEach(x => x.remove());
+      for (let d = stap; d < einde; d += stap) {
+        if (d !== vj) spoor.append(Object.assign(document.createElement('i'), { className: 'mb-streep', style: `left:${d / einde * 100}%` }));
+      }
+      if (vj) spoor.append(Object.assign(document.createElement('i'), { className: 'mb-vj', title: `Vorig jaar: ${fmt0.format(vj)} L`, style: `left:${vj / einde * 100}%` }));
+      const vjOpEinde = vj === einde;
+      $('mb-schaal').innerHTML = `<span>0</span>`
+        + (vj && !vjOpEinde ? `<span class="mb-schaal-vj" style="left:${vj / einde * 100}%">vorig jaar</span>` : '')
+        + `<span${vjOpEinde ? ' class="mb-schaal-vj-eind"' : ''}>${fmt0.format(einde)} L</span>`;
+    }
+
+    const idx = Math.floor(L / stap);
+    if (doelIndex !== null && !eerste) {
+      if (record && !recordGehaald) vier(vj, 'record');
+      else if (idx > doelIndex) vier(idx * stap, 'tussendoel');
+    }
+    doelIndex = idx;
+    recordGehaald = record;
+  }
+  function vier(l, soort) {
+    const m = $('mijlpaal');
+    $('mp-getal').textContent = fmt0.format(l);
+    $('mp-tekst').textContent = soort === 'record' ? 'Record van vorig jaar gebroken!' : 'liter bier gedronken';
+    m.dataset.soort = soort;
+    m.classList.remove('weg');
+    m.hidden = false;
+    clearTimeout(vier.t);
+    vier.t = setTimeout(() => { m.classList.add('weg'); setTimeout(() => { m.hidden = true; }, 600); }, soort === 'record' ? 12000 : 6500);
+  }
+
+  /* ---- 5. Ranglijst en laatste bestellingen ---- */
+  function toonRanglijst(s) {
+    const top = Object.entries(rangVan).sort((a, b) => a[1] - b[1]).slice(0, 5).map(([nr]) => [nr, s.tafels[nr]]);
+    const max = top[0]?.[1].ml || 1;
+    $('ranglijst').innerHTML = top.length
+      ? top.map(([nr, t], i) => `<li data-nr="${nr}"><span class="rl-rang">${i + 1}</span><span class="rl-naam">Tafel ${nr}<small>${zaalNaam(nr)}</small></span><span class="rl-liter">${liter(t.ml)} L</span><span class="rl-balk" style="--w:${(t.ml / max * 100).toFixed(1)}%"></span></li>`).join('')
+      : '<li class="leeg">Nog geen bestellingen</li>';
   }
 
   function toonRecent(s) {
     const ul = $('recent');
-    const oud = ul.dataset.sleutel;
-    const items = s.recent.slice(0, 10);   // gsm toont er 6, de beamer vult de kolom
-    ul.replaceChildren(...items.map((r, i) => {
-      const li = document.createElement('li');
-      if (i === 0 && oud && oud !== String(r.ts) + r.t) li.className = 'nieuw';
-      li.innerHTML = `<span class="rc-tafel">${r.t ? 'Tafel ' + r.t : 'Toog'}</span><span class="rc-wat">${r.p ? escape(r.p) : ''}</span><span class="rc-ml">+${liter(r.ml)} L</span><span class="rc-tijd" data-ts="${r.ts}">${geleden(r.ts)}</span>`;
-      return li;
-    }));
-    if (!items.length) ul.innerHTML = '<li class="leeg">Wachten op de eerste bestelling</li>';
-    ul.dataset.sleutel = items[0] ? String(items[0].ts) + items[0].t : '';
+    const sleutel = r => `${r.ts}-${r.t}-${r.ml}`;
+    const vorige = ul.dataset.sleutel;
+    ul.innerHTML = s.recent.length
+      ? s.recent.map((r, i) => `<li${i === 0 && vorige && vorige !== sleutel(r) ? ' class="nieuw"' : ''}><span class="rc-tafel">${r.t ? 'Tafel ' + html(r.t) : 'Zonder tafel'}</span><span class="rc-wat">${r.p ? html(r.p) : ''}</span><span class="rc-ml">+${liter(r.ml)} L</span><span class="rc-tijd" data-ts="${r.ts}">${geleden(r.ts)}</span></li>`).join('')
+      : '<li class="leeg">Wachten op de eerste bestelling</li>';
+    ul.dataset.sleutel = s.recent[0] ? sleutel(s.recent[0]) : '';
+    pasRecentAan();
   }
-  function escape(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+  /* Op groot scherm vult de lijst de kolom: zoveel regels als er volledig passen, nooit een halve.
+   * Op gsm en tablet: hoogstens 6. */
+  function pasRecentAan() {
+    const items = [...$('recent').children];
+    if (!mqGroot.matches) { items.forEach((li, i) => { li.hidden = i >= 6; }); return; }
+    items.forEach(li => { li.hidden = false; });
+    const onder = $('blok-recent').getBoundingClientRect().bottom;
+    items.forEach(li => { li.hidden = li.getBoundingClientRect().bottom > onder + 0.5; });
+  }
 
-  /* Verloop als linosnede: één inktblok per 5 minuten, het lopende blok in het rood.
-   * De viewBox volgt de echte pixelbreedte, zodat tekst nooit uitgerekt wordt. */
+  /* ---- 6. Verloop ----
+   * Linosnede: één inktblok per 5 minuten, het lopende blok in het rood. De viewBox
+   * volgt de echte pixelmaat, zodat tekst nooit uitgerekt wordt. */
   function tekenVerloop() {
-    const s = laatsteStand; const svg = $('verloop-svg');
-    if (!s || !s.verloop) return;
+    const s = laatsteStand, svg = $('verloop-svg');
+    if (!s?.verloop) return;
     const W = Math.max(200, Math.round(svg.clientWidth)), H = Math.max(60, Math.round(svg.clientHeight));
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     const ml = s.verloop.ml, n = ml.length;
     const voet = H - 16, top = 14;
-    const max = Math.max(1000, ...ml);
+    const max = Math.max(1000, ...ml);   // schaal minstens 1 L per 5 minuten, zodat een rustig begin niet overdreven oogt
     const bw = W / n, gat = Math.max(1, bw * 0.24);
-    const piekI = ml.indexOf(Math.max(...ml));
     let balken = '', uren = '';
     ml.forEach((v, i) => {
       const h = v / max * (voet - top);
@@ -325,88 +360,30 @@
         uren += `<text class="vl-uurlabel" x="${x}" y="${H - 1}">${new Date(ts).getHours()}u</text>`;
       }
     });
-    const piek = ml[piekI] > 0 ? `<text class="vl-piek" x="${Math.min(W - 2, Math.max(2, piekI * bw + bw / 2))}" y="${(voet - ml[piekI] / max * (voet - top) - 4).toFixed(1)}" text-anchor="${piekI * bw > W - 60 ? 'end' : piekI * bw < 60 ? 'start' : 'middle'}">${fmt1.format(ml[piekI] / 1000)} L</text>` : '';
+    const piekI = ml.indexOf(Math.max(...ml));
+    const px = piekI * bw + bw / 2;
+    const piek = ml[piekI] > 0
+      ? `<text class="vl-piek" x="${px.toFixed(1)}" y="${(voet - ml[piekI] / max * (voet - top) - 4).toFixed(1)}" text-anchor="${px > W - 40 ? 'end' : px < 40 ? 'start' : 'middle'}">${fmt1.format(ml[piekI] / 1000)} L</text>`
+      : '';
     svg.innerHTML = `<g class="vl-inkt">${balken}<line class="vl-voet" x1="0" x2="${W}" y1="${voet}" y2="${voet}"/></g>${uren}${piek}`;
   }
-  let herteken;
-  addEventListener('resize', () => { clearTimeout(herteken); herteken = setTimeout(tekenVerloop, 150); });
 
-  /* Tussendoelen: elke `tussendoel_l` liter een feestmoment, met het totaal van
-   * vorig jaar als apart (en groter) doel. De balk loopt tot het record van
-   * vorig jaar, of tot het volgende tussendoel zodra dat record gebroken is. */
-  function toonDoelen(s, eerste) {
-    const L = s.totaal_ml / 1000;
-    const stap = cfg.tussendoel_l;
-    const vj = cfg.vorig_jaar_l || 0;
-    const volgend = (Math.floor(L / stap) + 1) * stap;
-    const einde = Math.max(vj, volgend);
-    let label;
-    if (vj && L >= vj) label = `Record gebroken! Volgend doel ${fmt0.format(volgend)} L`;
-    else if (vj && volgend >= vj) label = `Op weg naar het record van vorig jaar: ${fmt0.format(vj)} L`;
-    else label = `Volgend tussendoel: ${fmt0.format(volgend)} L`;
-    const doel = vj && L < vj ? Math.min(volgend, vj) : volgend;
-    $('mb-label').textContent = label;
-    $('mb-rest').textContent = 'nog ' + fmt0.format(Math.max(0, Math.ceil(doel - L))) + ' L';
-    $('mb-vul').style.width = Math.min(100, L / einde * 100) + '%';
-
-    /* Streepjes voor elk tussendoel, een ster voor vorig jaar. Enkel hertekenen als de schaal verandert. */
-    const spoor = $('mb-spoor');
-    if (spoor.dataset.einde !== String(einde)) {
-      spoor.dataset.einde = einde;
-      spoor.querySelectorAll('.mb-streep, .mb-vj').forEach(x => x.remove());
-      for (let d = stap; d < einde; d += stap) {
-        if (d === vj) continue;
-        const t = document.createElement('i');
-        t.className = 'mb-streep'; t.style.left = (d / einde * 100) + '%';
-        spoor.append(t);
-      }
-      if (vj) {
-        const v = document.createElement('i');
-        v.className = 'mb-vj'; v.style.left = (vj / einde * 100) + '%';
-        v.title = 'Vorig jaar: ' + fmt0.format(vj) + ' L';
-        spoor.append(v);
-      }
-      const vjOpEinde = vj && vj === einde;
-      $('mb-schaal').innerHTML = `<span>0</span>${vj && !vjOpEinde ? `<span class="mb-schaal-vj" style="left:${vj / einde * 100}%">vorig jaar</span>` : ''}<span${vjOpEinde ? ' class="mb-schaal-eind"' : ''}>${fmt0.format(einde)} L${vjOpEinde ? ' = vorig jaar' : ''}</span>`;
-    }
-
-    const idx = Math.floor(L / stap);
-    const recordNu = vj && L >= vj;
-    if (mijlpaalIndex !== null && !eerste) {
-      if (recordNu && !mijlpaalRecord) vier(vj, 'record');
-      else if (idx > mijlpaalIndex) vier(idx * stap, 'tussendoel');
-    }
-    mijlpaalIndex = idx;
-    mijlpaalRecord = recordNu;
-  }
-  let mijlpaalRecord = false;
-  function vier(l, soort) {
-    const m = $('mijlpaal');
-    $('mp-getal').textContent = fmt0.format(l);
-    $('mp-tekst').textContent = soort === 'record' ? 'Record van vorig jaar gebroken!' : 'liter bier gedronken';
-    m.dataset.soort = soort;
-    m.hidden = false;
-    m.classList.remove('weg');
-    clearTimeout(vier.t);
-    vier.t = setTimeout(() => { m.classList.add('weg'); setTimeout(() => { m.hidden = true; }, 600); }, soort === 'record' ? 12000 : 6500);
-  }
-
-  /* ---- Tafeldetail ---- */
+  /* ---- 7. Tafeldetail: onderblad op gsm, zwevend kaartje op groot scherm ---- */
   let openNr = null;
   function openDetail(nr, anker) {
     openNr = nr;
     vulDetail();
     const d = $('tafel-detail');
     d.hidden = false;
-    if (anker && matchMedia('(min-width: 900px)').matches) {
-      const r = anker.getBoundingClientRect();
-      const bw = 280, bh = d.offsetHeight;
-      let x = r.right + 12, y = r.top + r.height / 2 - bh / 2;
+    const zwevend = anker && !mqGsm.matches;
+    d.classList.toggle('zwevend', !!zwevend);
+    if (zwevend) {
+      const r = anker.getBoundingClientRect(), bw = d.offsetWidth, bh = d.offsetHeight;
+      let x = r.right + 12;
       if (x + bw > innerWidth - 16) x = r.left - bw - 12;
-      y = Math.max(16, Math.min(innerHeight - bh - 16, y));
-      d.style.left = x + 'px'; d.style.top = y + 'px';
-      d.classList.add('zwevend');
-    } else { d.classList.remove('zwevend'); d.style.left = d.style.top = ''; }
+      d.style.left = Math.max(16, x) + 'px';
+      d.style.top = Math.max(16, Math.min(innerHeight - bh - 16, r.top + r.height / 2 - bh / 2)) + 'px';
+    } else d.style.left = d.style.top = '';
     document.querySelectorAll('.tafel.t-open').forEach(g => g.classList.remove('t-open'));
     tafelEls[nr]?.g.classList.add('t-open');
     $('td-sluit').focus({ preventScroll: true });
@@ -415,57 +392,34 @@
     if (!openNr) return;
     const s = laatsteStand || { tafels: {}, totaal_ml: 0 };
     const t = s.tafels[openNr] || { ml: 0, n: 0, laatst: 0 };
-    $('td-zaal').textContent = ZAAL.zaalVan[openNr] === 'tuinzaal' ? 'Tuinzaal' : 'Grote zaal';
+    $('td-zaal').textContent = zaalNaam(openNr);
     $('td-titel').textContent = 'Tafel ' + openNr;
     $('td-liter').innerHTML = `${liter(t.ml)}<small> L</small>`;
-    $('td-rang').textContent = t.ml > 0 ? `${rangVan[openNr]} van ${Object.keys(ZAAL.zaalVan).length}` : '–';
+    $('td-rang').textContent = rangVan[openNr] ? `${rangVan[openNr]} van ${Object.keys(ZAAL.zaalVan).length}` : 'nog geen';
     $('td-n').textContent = fmt0.format(t.n);
-    $('td-deel').textContent = s.totaal_ml ? fmt1.format(t.ml / s.totaal_ml * 100) + ' %' : '–';
-    $('td-laatst').textContent = t.laatst ? geleden(t.laatst) + (geleden(t.laatst) === 'nu' || /:/.test(geleden(t.laatst)) ? '' : ' geleden') : 'nog niets';
+    $('td-deel').textContent = s.totaal_ml ? fmt1.format(t.ml / s.totaal_ml * 100) + ' %' : '0,0 %';
+    $('td-laatst').textContent = t.laatst ? geleden(t.laatst) : 'nog geen';
   }
   function sluitDetail() {
+    const g = tafelEls[openNr]?.g;
     $('tafel-detail').hidden = true;
-    tafelEls[openNr]?.g.classList.remove('t-open');
-    const terug = tafelEls[openNr]?.g;
+    g?.classList.remove('t-open');
     openNr = null;
-    terug?.focus({ preventScroll: true });
+    g?.focus({ preventScroll: true });
   }
   document.addEventListener('click', e => {
-    const g = e.target.closest('.tafel');
-    if (g) { openDetail(g.dataset.nr, g); return; }
-    if (!e.target.closest('#tafel-detail') && !e.target.closest('#ranglijst')) { if (openNr) sluitDetail(); }
-  });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && openNr) sluitDetail();
-    const g = e.target.closest?.('.tafel');
-    if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDetail(g.dataset.nr, g); }
-    if (e.key === 'f' && !e.target.closest('input,textarea')) document.documentElement.requestFullscreen?.().catch(() => {});
+    const g = e.target.closest('.tafel, #ranglijst li[data-nr]');
+    if (g) { const nr = g.dataset.nr; openDetail(nr, tafelEls[nr]?.g); return; }
+    if (openNr && !e.target.closest('#tafel-detail')) sluitDetail();
   });
   $('td-sluit').addEventListener('click', sluitDetail);
-  /* ---- Per feestdag ----
-   * De server telt per feestdag (06:00 tot 06:00 Belgische tijd), zodat een nacht tot 2u
-   * nog bij de dag ervoor hoort. Hier enkel tonen: weekdag, liters, en welke dag vandaag is. */
-  const weekdag = d => { const w = new Date(d + 'T12:00:00').toLocaleDateString('nl-BE', { weekday: 'long' }); return w[0].toUpperCase() + w.slice(1); };
-  function toonDagen(s) {
-    const ul = $('dagen');
-    const dagen = s.dagen || [];
-    ul.hidden = !dagen.length;
-    ul.replaceChildren(...dagen.map(({ dag, ml }) => {
-      const li = document.createElement('li');
-      const nu = dag === s.vandaag;
-      if (nu) li.className = 'dag-nu';
-      li.innerHTML = `<span class="dag-naam">${weekdag(dag)}${nu ? ' <small>vandaag</small>' : ''}</span><span class="dag-l">${liter(ml)} L</span>`;
-      return li;
-    }));
-  }
 
-  /* ---- Delen met een QR-code ----
-   * Wie de site al open heeft, toont de code aan iemand anders, die hem scant.
-   * De code wordt in de browser gemaakt (qrcode-generator, MIT), zonder externe dienst. */
+  /* ---- 8. Delen met QR-code ----
+   * Wie de site open heeft, toont de code aan iemand anders, die hem scant. De code
+   * wordt in de browser gemaakt (qrcode-generator, MIT), zonder externe dienst. */
   const deelUrl = () => cfg.deel_url || (location.origin + location.pathname);
   function openDeel() {
-    const url = deelUrl();
-    const qr = qrcode(0, 'M');
+    const url = deelUrl(), qr = qrcode(0, 'M');
     qr.addData(url);
     qr.make();
     $('deel-qr').innerHTML = qr.createSvgTag({ cellSize: 8, margin: 2, scalable: true, alt: 'QR-code naar ' + url });
@@ -478,32 +432,53 @@
   $('deel-knop').addEventListener('click', openDeel);
   $('deel-sluit').addEventListener('click', sluitDeel);
   $('deel').addEventListener('click', e => { if (e.target === $('deel')) sluitDeel(); });
-  addEventListener('keydown', e => { if (e.key === 'Escape' && !$('deel').hidden) sluitDeel(); });
   $('deel-kopieer').addEventListener('click', async () => {
     const knop = $('deel-kopieer');
     try { await navigator.clipboard.writeText(deelUrl()); knop.textContent = 'Gekopieerd'; }
-    catch { getSelection().selectAllChildren($('deel-url')); knop.textContent = 'Selecteer en kopieer'; }
+    catch { getSelection().selectAllChildren($('deel-url')); knop.textContent = 'Geselecteerd, kopieer zelf'; }
     setTimeout(() => { knop.textContent = 'Kopieer link'; }, 2500);
   });
   $('deel-delen').addEventListener('click', () => navigator.share?.({ title: 'Herentalse Bierfeesten live', url: deelUrl() }).catch(() => {}));
 
-  /* ---- Status ---- */
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { if (!$('deel').hidden) sluitDeel(); else if (openNr) sluitDetail(); }
+    const g = e.target.closest?.('.tafel');
+    if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDetail(g.dataset.nr, g); }
+    if (beamer && e.key === 'f') document.documentElement.requestFullscreen?.().catch(() => {});
+  });
+
+  /* ---- 9. Status, klok, beamer en start ---- */
   function onStatus(staat, tekst) {
     $('status').dataset.staat = staat;
     $('status-tekst').textContent = tekst;
   }
+  function toonVoet() {
+    if (!laatsteStand?.bestellingen) return;
+    $('voet-info').textContent = `Laatste bestelling ${geleden(laatsteStand.bijgewerkt)} · cijfers komen rechtstreeks uit de kassa`;
+  }
+  /* Relatieve tijden ("3 min geleden") lopen ook zonder nieuwe bestellingen mee. */
   setInterval(() => {
     document.querySelectorAll('.rc-tijd').forEach(x => { x.textContent = geleden(+x.dataset.ts); });
-    if (laatsteStand) {
-      const t = new Date(laatsteStand.bijgewerkt).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      $('voet-info').textContent = `Alleen lezen · laatste bestelling verwerkt om ${t}`;
-    }
+    toonVoet();
     vulDetail();
   }, 15000);
 
-  /* ---- Beamer: scherm wakker houden en cursor verbergen ---- */
+  function onStand(s) {
+    const eerste = !laatsteStand;
+    laatsteStand = s;
+    tekenTeller(s.totaal_ml, eerste);
+    toonTafels(s, eerste);
+    toonKerncijfers(s);
+    toonDagen(s);
+    toonDoelen(s, eerste);
+    toonRanglijst(s);
+    toonRecent(s);
+    tekenVerloop();
+    toonVoet();
+    vulDetail();
+  }
+
   if (beamer) {
-    document.body.classList.add('beamer');
     const wakker = () => navigator.wakeLock?.request('screen').catch(() => {});
     wakker();
     document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && wakker());
@@ -511,9 +486,12 @@
     addEventListener('mousemove', () => { document.body.classList.remove('cursor-weg'); clearTimeout(t); t = setTimeout(() => document.body.classList.add('cursor-weg'), 3000); });
   }
 
-  /* ---- Start ---- */
+  let herteken;
+  addEventListener('resize', () => { clearTimeout(herteken); herteken = setTimeout(() => { tekenVerloop(); pasRecentAan(); }, 150); });
+  mqGsm.addEventListener('change', bouwPlannen);
+
   bouwPlannen();
-  tekenTeller(0);
+  tekenTeller(0, true);
   if (cfg.bron === 'demo') {
     $('demo-band').hidden = false;
     new BRON.DemoBron(onStand, onStatus).start();

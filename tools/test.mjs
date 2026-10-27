@@ -51,6 +51,10 @@ r = await post({ stand: { tafels: { 12: 2.5, 40: 1.2 } } });
 s = await stand();
 ok(s.tafels['12'].ml === 2500 && s.tafels['40'].ml === 1200 && s.tafels['12'].n === 1, 'absolute stand per tafel zet correcties zonder bestellingen te verdubbelen');
 
+r = await post({ bestellingen: [{ id: 'w1', tafel: 99, ml: 330 }] });
+ok(r.data.aanvaard === 1 && r.data.waarschuwingen?.length === 1, 'tafel buiten het plan: aanvaard met waarschuwing');
+r = await post({ storno: ['w1'] });
+
 /* Per feestdag: 06:00 tot 06:00 Belgische tijd. 01:30 's nachts telt nog bij de vorige dag. */
 r = await post({ bestellingen: [
   { id: 'd1', tafel: 7, ml: 330, tijd: '2026-10-02T15:00:00+02:00' },

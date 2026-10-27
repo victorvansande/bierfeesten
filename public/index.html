@@ -34,6 +34,8 @@
 
 <main class="scherm" id="scherm">
 
+  <!-- Kolommen: op gsm en tablet lost de wrapper op (display: contents), op groot scherm vormt ze een kolom. -->
+  <div class="kolom kolom-midden">
   <section class="midden" aria-label="Totaal">
     <h1 class="merk"><span class="merk-logo" role="img" aria-label="Herentalse Bierfeesten"></span></h1>
 
@@ -46,11 +48,11 @@
     <ul class="dagen" id="dagen" aria-label="Liter per dag" hidden></ul>
 
     <dl class="kerncijfers" id="kerncijfers">
-      <div><dt>liter per uur</dt><dd id="k-uur">0</dd></div>
+      <div><dt>liter per uur, nu</dt><dd id="k-uur">0</dd></div>
       <div><dt>bestellingen</dt><dd id="k-best">0</dd></div>
     </dl>
 
-    <div class="mijlpaal-balk" id="mijlpaal-balk">
+    <div class="doelen" id="doelen">
       <div class="mb-tekst"><span id="mb-label">Volgend tussendoel</span><span id="mb-rest"></span></div>
       <div class="mb-spoor" id="mb-spoor"><div class="mb-vul" id="mb-vul"></div></div>
       <div class="mb-schaal" id="mb-schaal"></div>
@@ -69,31 +71,32 @@
       <svg id="verloop-svg" viewBox="0 0 400 80" role="img" aria-label="Liter per 5 minuten, laatste vier uur"></svg>
     </figure>
   </section>
+  </div>
 
   <section class="zaal-kaart" id="kaart" aria-label="Tafelplan">
     <div class="plan" id="plan"></div>
     <p class="plan-noot">Op gsm staan de zalen onder elkaar. In het echt ligt de tuinzaal links van de grote zaal, verbonden door twee deuren.</p>
   </section>
 
-  <section class="zijkant" aria-label="Ranglijst en laatste bestellingen">
+  <section class="kolom zijkant" aria-label="Ranglijst en laatste bestellingen">
     <div class="ranglijst" id="blok-rang">
       <h2 class="blok-kop">Dorstigste tafels</h2>
       <ol id="ranglijst"></ol>
     </div>
     <div class="recent" id="blok-recent">
-      <h2 class="blok-kop">Net getapt</h2>
+      <h2 class="blok-kop">Laatste bestellingen</h2>
       <ul id="recent"></ul>
     </div>
   </section>
 
   <footer class="voet">
     <span class="status" id="status" data-staat="verbinden"><i></i><span id="status-tekst">Verbinden…</span></span>
-    <span class="voet-info" id="voet-info">Alleen lezen · cijfers komen rechtstreeks uit de kassa</span>
+    <span class="voet-info" id="voet-info">Cijfers komen rechtstreeks uit de kassa</span>
   </footer>
 </main>
 
 <div class="tafel-detail" id="tafel-detail" role="dialog" aria-modal="false" aria-labelledby="td-titel" hidden>
-  <button class="td-sluit" id="td-sluit" type="button" aria-label="Sluiten">×</button>
+  <button class="sluit" id="td-sluit" type="button" aria-label="Sluiten">×</button>
   <div class="td-zaal" id="td-zaal"></div>
   <h3 id="td-titel">Tafel</h3>
   <div class="td-liter" id="td-liter"></div>
@@ -107,7 +110,7 @@
 
 <div class="deel" id="deel" role="dialog" aria-modal="true" aria-labelledby="deel-titel" hidden>
   <div class="deel-kaart">
-    <button class="td-sluit" id="deel-sluit" type="button" aria-label="Sluiten">×</button>
+    <button class="sluit" id="deel-sluit" type="button" aria-label="Sluiten">×</button>
     <h2 id="deel-titel">Laat iemand meekijken</h2>
     <p>Laat deze code scannen met de camera van een andere gsm.</p>
     <div class="deel-qr" id="deel-qr"></div>

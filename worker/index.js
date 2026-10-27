@@ -83,7 +83,8 @@ export class Telling {
     for (const r of this.sql.exec('SELECT (ts / ?) AS e, SUM(ml) AS ml FROM bestelling WHERE storno = 0 AND ts >= ? GROUP BY e', EMMER_MS, vanaf)) {
       this.emmers.set(Math.floor(r.e) * EMMER_MS, r.ml);
     }
-    this.bijgewerkt = Date.now();
+    /* Tijdstip van de laatst verwerkte bestelling, ook na een herstart van het Durable Object. */
+    this.bijgewerkt = this.sql.exec('SELECT MAX(ontvangen) AS t FROM bestelling').one().t || 0;
   }
 
   boekTotaal(tafel, ml, n, ts) {
@@ -97,13 +98,14 @@ export class Telling {
     this.aantal += n;
   }
 
+  /* Eén bestelling, correctie of storno (negatieve ml) in de totalen verwerken. */
   boek(b) {
-    this.boekTotaal(b.tafel, b.ml, b.correctie ? 0 : 1, b.ts);
+    this.boekTotaal(b.tafel, b.ml, b.correctie ? 0 : b.storno ? -1 : 1, b.ts);
     const e = Math.floor(b.ts / EMMER_MS) * EMMER_MS;
     this.emmers.set(e, (this.emmers.get(e) || 0) + b.ml);
     const d = feestdag(b.ts);
     this.dagen[d] = (this.dagen[d] || 0) + b.ml;
-    if (b.ml > 0 && !b.correctie) {
+    if (b.ml > 0 && !b.correctie && !b.storno) {
       this.recent.unshift({ id: b.id, t: b.tafel, ml: b.ml, p: b.product, ts: b.ts });
       this.recent.length = Math.min(this.recent.length, RECENT);
     }
@@ -175,8 +177,9 @@ export class Telling {
     try { body = await req.json(); } catch { return json({ fout: 'Body is geen geldige JSON.' }, {}, 400); }
 
     const producten = leesProducten(this.env.PRODUCTEN);
+    const geldigeTafels = leesTafels(this.env.TAFELS);
     const nu = Date.now();
-    const resultaat = { aanvaard: 0, dubbel: 0, geweigerd: [] };
+    const resultaat = { aanvaard: 0, dubbel: 0, geweigerd: [], waarschuwingen: [] };
 
     /* Vorm 1: losse bestellingen (aanbevolen). Een object zonder "bestellingen" telt als één bestelling. */
     let lijst = [].concat(body.bestellingen || body.events || (body.id != null ? [body] : []));
@@ -189,30 +192,35 @@ export class Telling {
 
     if (lijst.length + storno.length > MAX_BATCH) return json({ fout: `Maximaal ${MAX_BATCH} regels per oproep.` }, {}, 413);
 
-    for (let i = 0; i < lijst.length; i++) {
-      const b = normaliseer(lijst[i], producten, nu);
-      if (b.fout) { resultaat.geweigerd.push({ index: i, id: lijst[i]?.id ?? null, reden: b.fout }); continue; }
-      const bestaat = this.sql.exec('SELECT 1 FROM bestelling WHERE id = ?', b.id).toArray().length > 0;
-      if (bestaat) { resultaat.dubbel++; continue; }
-      this.sql.exec('INSERT INTO bestelling (id, tafel, ml, product, ts, ontvangen) VALUES (?, ?, ?, ?, ?, ?)',
-        b.id, b.tafel, b.ml, b.product, b.ts, nu);
-      this.boek(b);
-      resultaat.aanvaard++;
-    }
-
-    for (const id of storno) {
-      const rij = this.sql.exec('SELECT tafel, ml, ts, storno FROM bestelling WHERE id = ?', String(id)).toArray()[0];
-      if (!rij) { resultaat.geweigerd.push({ id, reden: 'Storno voor onbekende bestelling.' }); continue; }
-      if (rij.storno) { resultaat.dubbel++; continue; }
-      this.sql.exec('UPDATE bestelling SET storno = 1 WHERE id = ?', String(id));
-      this.boekTotaal(rij.tafel, -rij.ml, -1, 0);
-      const e = Math.floor(rij.ts / EMMER_MS) * EMMER_MS;
-      if (this.emmers.has(e)) this.emmers.set(e, this.emmers.get(e) - rij.ml);
-      const d = feestdag(rij.ts);
-      this.dagen[d] = (this.dagen[d] || 0) - rij.ml;
-      resultaat.aanvaard++;
-    }
-    if (storno.length) this.recent = this.recent.filter(r => !storno.map(String).includes(r.id));
+    /* De hele zending als één transactie: ofwel alles in de database, ofwel niets. */
+    const teBoeken = [];
+    const gestorneerd = new Set();
+    this.ctx.storage.transactionSync(() => {
+      for (let i = 0; i < lijst.length; i++) {
+        const b = normaliseer(lijst[i], producten, nu);
+        if (b.fout) { resultaat.geweigerd.push({ index: i, id: lijst[i]?.id ?? null, reden: b.fout }); continue; }
+        /* Idempotent: een id die al bestaat, wordt stil overgeslagen. */
+        const nieuw = this.sql.exec('INSERT OR IGNORE INTO bestelling (id, tafel, ml, product, ts, ontvangen) VALUES (?, ?, ?, ?, ?, ?)',
+          b.id, b.tafel, b.ml, b.product, b.ts, nu).rowsWritten > 0;
+        if (!nieuw) { resultaat.dubbel++; continue; }
+        if (b.tafel != null && geldigeTafels && !geldigeTafels.has(b.tafel)) {
+          resultaat.waarschuwingen.push({ id: b.id, melding: `Tafel ${b.tafel} staat niet op het plan; de liters tellen wel mee in het totaal.` });
+        }
+        teBoeken.push(b);
+      }
+      for (const id of storno.map(String)) {
+        const rij = this.sql.exec('SELECT tafel, ml, ts, storno FROM bestelling WHERE id = ?', id).toArray()[0];
+        if (!rij) { resultaat.geweigerd.push({ id, reden: 'Storno voor een onbekende bestelling.' }); continue; }
+        if (rij.storno || gestorneerd.has(id)) { resultaat.dubbel++; continue; }
+        this.sql.exec('UPDATE bestelling SET storno = 1 WHERE id = ?', id);
+        gestorneerd.add(id);
+        teBoeken.push({ id, tafel: rij.tafel, ml: -rij.ml, ts: rij.ts, storno: true });
+      }
+    });
+    /* Pas na een geslaagde transactie de totalen in het geheugen bijwerken. */
+    for (const b of teBoeken) { this.boek(b); resultaat.aanvaard++; }
+    if (gestorneerd.size) this.recent = this.recent.filter(r => !gestorneerd.has(r.id));
+    if (!resultaat.waarschuwingen.length) delete resultaat.waarschuwingen;
 
     if (resultaat.aanvaard) {
       this.bijgewerkt = nu;
@@ -290,6 +298,17 @@ function normaliseer(r, producten, nu) {
     ts,
     correctie: !!r.correctie
   };
+}
+
+/* "1-71" of "1-53,54-71,80" naar een verzameling tafelnummers. Leeg = alles toegelaten. */
+function leesTafels(tekst) {
+  if (!tekst) return null;
+  const set = new Set();
+  for (const deel of String(tekst).split(',')) {
+    const [van, tot = van] = deel.trim().split('-').map(Number);
+    for (let n = van; n <= tot; n++) set.add(String(n));
+  }
+  return set;
 }
 
 function leesProducten(tekst) {

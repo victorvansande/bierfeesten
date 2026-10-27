@@ -34,6 +34,8 @@ Project van Victor (KSA Herentals). Live liters bier per tafel en totaal, gevoed
 - Precies aantal liter van vorig jaar.
 - Frisdrank en wijn: nu alleen bier; later eventueel filteren of apart tonen. Victor wil hier later op terugkomen.
 - Eigen domein (nu workers.dev).
-- Bierlijst met formaten (voorlopig, niets definitiefs mee doen).
+- Bierlijst: voorlopige lijst 2026 ontvangen (111 bieren: vooral flesjes 33 cl, ook 75, 37,5, 25 en 35,5 cl; 12 vaten van 15 à 20 L die per glas getapt worden, glas vermoedelijk 33 cl). Ter illustratie, niets definitiefs mee doen. Niet in de repository zetten.
+- Alcoholvrij bier (11 op de lijst): meetellen of niet? Victor vragen.
+- Glasvolume van tapbier bevestigen (33 cl?).
 - Antwoorden van de bouwer van de kassa op de vragen in KOPPELING.md.
 - Na het feest: eindstand en archief per editie (later).
