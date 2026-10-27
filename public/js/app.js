@@ -2,10 +2,7 @@
 (function () {
   const SVGNS = 'http://www.w3.org/2000/svg';
   const $ = id => document.getElementById(id);
-  const THEMAS = [
-    ['stempel', 'Stempel'], ['schuim', 'Schuimkraag'], ['vertrekbord', 'Vertrekbord'],
-    ['affiche', 'Kermisaffiche'], ['scorebord', 'Scorebord'], ['blauwdruk', 'Blauwdruk']
-  ];
+  const THEMAS = [['stempel', 'Stempel'], ['scorebord', 'Scorebord']];
 
   /* ---- Instellingen: config.js, overschreven door URL en #thema ---- */
   const cfg = Object.assign({}, window.BF_CONFIG);
@@ -33,6 +30,7 @@
     const kleur = getComputedStyle(document.body).getPropertyValue('--bg').trim();
     if (kleur) document.querySelector('meta[name=theme-color]').content = kleur;
     tekenVerloop();
+    if (typeof tellerWaarde === 'number') tekenTeller(tellerWaarde);
   }
   if (cfg.kiezer) {
     $('kiezer').hidden = false;
@@ -158,12 +156,15 @@
     teller.dataset.tekst = tekst;
     teller.setAttribute('aria-label', tekst + ' liter');
     /* Kilometerteller: x = deciliters. Elk cijfer draait mee zodra alle lagere cijfers op 9 staan. */
-    const x = v / 100;
+    /* Een LED-scorebord rolt niet maar springt: daar staan de cijfers altijd recht. */
+    const springt = document.body.dataset.thema === 'scorebord';
+    const x = springt ? Math.floor(v / 100) : v / 100;
     const cijfers = [...teller.querySelectorAll('.c')].reverse();
     cijfers.forEach((c, k) => {
       const macht = 10 ** k;
       let pos;
-      if (k === 0) pos = x % 10;
+      if (springt) pos = Math.floor(x / macht) % 10;
+      else if (k === 0) pos = x % 10;
       else {
         const rest = x % macht;
         pos = Math.floor(x / macht) % 10 + Math.max(0, rest - (macht - 1));

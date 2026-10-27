@@ -1,4 +1,5 @@
 /* Herentalse Bierfeesten live
+ * Twee stijlen: Stempel (standaard, geel affichepapier zoals het logo) en Scorebord (LED-matrix).
  * Layout: gsm = één kolom (teller, jouw tafel, plannen, ranglijst).
  *         beamer = drie kolommen: grote zaal | teller | tuinzaal + ranglijst, alles op één scherm.
  * Elk thema zet alleen tokens en een handvol eigen details. Elk thema is bewust één vaste look
@@ -62,8 +63,6 @@ body {
 .p-vul { fill: var(--vul); }
 .p-vul2 { fill: var(--vul-2); }
 .p-tafel { fill: var(--tafel); }
-.s-bier-1 { stop-color: var(--bier-1, #FFD04D); }
-.s-bier-2 { stop-color: var(--bier-2, #D9821B); }
 button { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 
@@ -401,184 +400,7 @@ body[data-thema="stempel"] .blok-kop,
 body[data-thema="stempel"] .mb-spoor { filter: url(#ruw); }
 body[data-thema="stempel"] .mp-ster { filter: url(#ruw-groot); }
 
-/* 2. Schuimkraag: donkere brouwerij, bier dat stijgt richting de volgende mijlpaal */
-body[data-thema="schuim"] {
-  --bg: #170C05;
-  --paneel: transparent;
-  --inkt: #FFF1D6;
-  --inkt-zacht: rgba(255, 241, 214, .6);
-  --accent: #F5A623;
-  --lijn: rgba(255, 241, 214, .28);
-  --vloer: #21120A;
-  --vloer-rand: #5A341A;
-  --vloer-sw: 2;
-  --vloer-breuk: rgba(255, 241, 214, .03);
-  --el: #4A2A13;
-  --el-tekst: #FFE2A6;
-  --muur: #8A5A2B;
-  --deur: #8A5A2B;
-  --tafel: #2C190C;
-  --tafel-rand: #6B4220;
-  --tafel-sw: 1.6;
-  --tafel-tekst: #FFF1D6;
-  --tafel-tekst-2: rgba(255, 241, 214, .7);
-  --vul: #F5A623;
-  --vul-2: #F5A623;
-  --vul-fill: url(#bier);
-  --vul-tekst: #2A1404;
-  --bier-1: #FFD45E;
-  --bier-2: #D27A12;
-  --merk: #FFE2A6;
-  --teller: #FFF1D6;
-  --f-teller: 'Alfa Slab One', 'Rockwell', serif;
-  --f-kop: 'Alfa Slab One', 'Rockwell', serif;
-  --f-tekst: 'Barlow Condensed', 'Arial Narrow', sans-serif;
-  --f-data: 'Barlow Condensed', 'Arial Narrow', sans-serif;
-  --f-tafelnr: 'Alfa Slab One', serif;
-  --kop-transform: none;
-  --kop-spatie: .01em;
-  --teller-lh: 1.12;
-  color-scheme: dark;
-  background: radial-gradient(120% 80% at 50% 0%, #2A1608 0%, #170C05 60%) fixed, #170C05;
-}
-body[data-thema="schuim"] .midden { isolation: isolate; }
-body[data-thema="schuim"] .midden::before {
-  content: "";
-  position: absolute; z-index: -1;
-  left: -1.2vw; right: -1.2vw; bottom: 0;
-  height: var(--niveau, 0%);
-  background:
-    radial-gradient(circle, rgba(255, 248, 225, .55) 1.2px, transparent 2px) 0 0 / 23px 31px,
-    radial-gradient(circle, rgba(255, 248, 225, .35) 1px, transparent 1.6px) 11px 7px / 17px 23px,
-    linear-gradient(rgba(233, 154, 30, .34), rgba(168, 90, 12, .22));
-  box-shadow: 0 -18px 22px -6px rgba(255, 241, 214, .22), inset 0 6px 0 rgba(255, 241, 214, .35);
-  border-radius: 6px 6px 0 0;
-  transition: height 1.5s cubic-bezier(.2, .8, .2, 1);
-  animation: bubbels 6s linear infinite;
-}
-@keyframes bubbels { to { background-position: 0 -310px, 11px -223px, 0 0; } }
-body[data-thema="schuim"] .teller-getal { text-shadow: 0 .035em 0 #A85A0C; }
-body[data-thema="schuim"] .teller { filter: drop-shadow(0 0 .35em rgba(245, 166, 35, .3)); }
-body[data-thema="schuim"] .teller-label, body[data-thema="schuim"] .teller-eenheid { letter-spacing: .2em; text-transform: uppercase; font-family: var(--f-tekst); font-weight: 600; }
-body[data-thema="schuim"] .kerncijfers div { border-top-width: 1px; }
-body[data-thema="schuim"] .mb-spoor { border-radius: 999px; border-width: 1px; }
-body[data-thema="schuim"] .mb-vul { background: linear-gradient(90deg, #D27A12, #FFD45E); }
-body[data-thema="schuim"] .t-blad, body[data-thema="schuim"] .t-rand { rx: 4px; }
-body[data-thema="schuim"] .vloer { rx: 14px; }
-body[data-thema="schuim"] .zaal-kop, body[data-thema="schuim"] .blok-kop, body[data-thema="schuim"] .voet { border-width: 1px; }
-body[data-thema="schuim"] .rl-balk { background: linear-gradient(90deg, #D27A12, #FFD45E var(--w), transparent var(--w)); border-radius: 2px; }
-body[data-thema="schuim"] .td-volg { background: var(--accent); color: #2A1404; border-color: var(--accent); border-radius: 999px; }
-body[data-thema="schuim"] .tafel-detail.zwevend { border-radius: 14px; border-width: 1px; box-shadow: 0 20px 50px rgba(0, 0, 0, .5); }
-
-/* 3. Vertrekbord: mechanisch splitflapbord van een stationshal */
-body[data-thema="vertrekbord"] {
-  --bg: #0E1013;
-  --paneel: transparent;
-  --inkt: #F2EEE3;
-  --inkt-zacht: #8B8F98;
-  --accent: #FFC72C;
-  --lijn: #2A2E35;
-  --vloer: #121418;
-  --vloer-rand: #2A2E35;
-  --vloer-sw: 2;
-  --vloer-breuk: rgba(255, 255, 255, .02);
-  --el: #23272E;
-  --el-tekst: #8B8F98;
-  --muur: #3A3F48;
-  --deur: #3A3F48;
-  --tafel: #1D2026;
-  --tafel-rand: #050607;
-  --tafel-sw: 1.5;
-  --tafel-tekst: #F2EEE3;
-  --tafel-tekst-2: #FFC72C;
-  --vul: #FFC72C;
-  --vul-2: #FFC72C;
-  --vul-tekst: #111;
-  --merk: #F2EEE3;
-  --teller: #F2EEE3;
-  --f-teller: 'Barlow Condensed', 'Arial Narrow', sans-serif;
-  --f-kop: 'Barlow Condensed', 'Arial Narrow', sans-serif;
-  --f-tekst: 'Barlow Condensed', 'Arial Narrow', sans-serif;
-  --f-data: 'Barlow Condensed', 'Arial Narrow', sans-serif;
-  --f-tafelnr: 'Barlow Condensed', sans-serif;
-  --kop-spatie: .14em;
-  --teller-lh: 1.18;
-  color-scheme: dark;
-}
-body[data-thema="vertrekbord"] .teller-getal { font-weight: 700; gap: .05em; }
-body[data-thema="vertrekbord"] .teller-getal .c {
-  background: linear-gradient(#262A31 0 49.4%, #08090B 49.4% 50.6%, #1D2026 50.6%);
-  border-radius: .07em;
-  padding-inline: .06em;
-  box-shadow: inset 0 -.03em 0 rgba(0, 0, 0, .6), 0 .02em .06em rgba(0, 0, 0, .7);
-}
-body[data-thema="vertrekbord"] .teller-getal .sep { color: var(--accent); width: .3em; text-align: center; }
-body[data-thema="vertrekbord"] .t-nr { font-weight: 700; }
-body[data-thema="vertrekbord"] .zaal-kop h2, body[data-thema="vertrekbord"] .blok-kop, body[data-thema="vertrekbord"] .teller-label, body[data-thema="vertrekbord"] .teller-eenheid { font-weight: 600; color: var(--accent); }
-body[data-thema="vertrekbord"] .kerncijfers dd, body[data-thema="vertrekbord"] .rl-liter, body[data-thema="vertrekbord"] .rl-rang, body[data-thema="vertrekbord"] .mijn-liter { font-weight: 700; }
-body[data-thema="vertrekbord"] .kerncijfers div { border-top: 0; background: #1D2026; padding: 8px 10px; border-radius: 4px; }
-body[data-thema="vertrekbord"] #ranglijst li, body[data-thema="vertrekbord"] #recent li { font-size: 17px; text-transform: uppercase; letter-spacing: .04em; }
-body[data-thema="vertrekbord"] .rl-rang { color: #111; background: var(--accent); text-align: center; padding: 3px 0; border-radius: 3px; }
-body[data-thema="vertrekbord"] .rl-balk { background: linear-gradient(90deg, #3A3F48 var(--w), transparent var(--w)); }
-body[data-thema="vertrekbord"] .td-liter { font-weight: 700; color: var(--accent); }
-body[data-thema="vertrekbord"] .td-volg { background: var(--accent); color: #111; border-color: var(--accent); }
-body[data-thema="vertrekbord"] .mp-getal { font-weight: 700; }
-body[data-thema="vertrekbord"] .mp-ster { opacity: .2; }
-
-/* 4. Kermisaffiche: houtletters, rasterdruk en een verschoven rode drukgang */
-body[data-thema="affiche"] {
-  --bg: #F2E8D5;
-  --paneel: transparent;
-  --inkt: #1A1414;
-  --inkt-zacht: rgba(26, 20, 20, .65);
-  --accent: #D62718;
-  --lijn: #1A1414;
-  --vloer: #FBF5EA;
-  --vloer-rand: #1A1414;
-  --vloer-sw: 2.5;
-  --vloer-breuk: rgba(214, 39, 24, .06);
-  --el: #1A1414;
-  --el-tekst: #FDDF59;
-  --muur: #1A1414;
-  --deur: #1A1414;
-  --tafel: #FBF5EA;
-  --tafel-rand: #1A1414;
-  --tafel-sw: 2;
-  --tafel-tekst: #1A1414;
-  --tafel-tekst-2: #D62718;
-  --vul: #D62718;
-  --vul-2: #F2B8A6;
-  --vul-fill: url(#raster);
-  --vul-tekst: #FFF;
-  --merk: #1A1414;
-  --teller: #1A1414;
-  --f-teller: 'Ultra', 'Rockwell Extra Bold', serif;
-  --f-kop: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
-  --f-tekst: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
-  --f-data: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
-  --f-tafelnr: 'Ultra', serif;
-  --kop-spatie: .06em;
-  --teller-lh: 1.15;
-  background: radial-gradient(rgba(214, 39, 24, .1) 1.1px, transparent 1.5px) 0 0 / 7px 7px, #F2E8D5;
-}
-body[data-thema="affiche"] .teller-getal { text-shadow: .05em .045em 0 var(--accent); }
-body[data-thema="affiche"] .teller::before {
-  content: ""; position: absolute; z-index: -1;
-  width: min(120%, 100vw); aspect-ratio: 1; left: 50%; top: 50%; translate: -50% -50%;
-  background: #FDDF59;
-  clip-path: polygon(50% 0, 57% 30%, 85% 15%, 70% 43%, 100% 50%, 70% 57%, 85% 85%, 57% 70%, 50% 100%, 43% 70%, 15% 85%, 30% 57%, 0 50%, 30% 43%, 15% 15%, 43% 30%);
-  animation: draai 90s linear infinite;
-}
-body[data-thema="affiche"] .zaal-kop h2, body[data-thema="affiche"] .blok-kop, body[data-thema="affiche"] .kerncijfers dd, body[data-thema="affiche"] .rl-liter, body[data-thema="affiche"] .mijn-liter { font-weight: 900; }
-body[data-thema="affiche"] .teller-label, body[data-thema="affiche"] .teller-eenheid { font-weight: 800; letter-spacing: .22em; text-transform: uppercase; }
-body[data-thema="affiche"] .t-liter { font-weight: 800; font-size: 11.5px; }
-body[data-thema="affiche"] .t-nr { font-size: 14px; }
-body[data-thema="affiche"] #recent li, body[data-thema="affiche"] .rl-naam { font-weight: 600; font-size: 17px; }
-body[data-thema="affiche"] .rl-rang { color: #FFF; background: var(--accent); border-radius: 50%; width: 1.4em; height: 1.4em; display: grid; place-items: center; font: 400 18px var(--f-teller); }
-body[data-thema="affiche"] .zaal-kop, body[data-thema="affiche"] .blok-kop { border-bottom: 4px double var(--lijn); }
-body[data-thema="affiche"] .td-volg { background: var(--accent); border-color: var(--inkt); color: #FFF; }
-
-/* 5. Scorebord: amberkleurige LED-matrix van een sporthal */
+/* 2. Scorebord: amberkleurige LED-matrix van een sporthal */
 body[data-thema="scorebord"] {
   --bg: #070707;
   --paneel: transparent;
@@ -617,7 +439,13 @@ body[data-thema="scorebord"] {
 body[data-thema="scorebord"] .t-blad { fill: url(#raster-uit); }
 body[data-thema="scorebord"] .t-nr { font-size: 16px; }
 body[data-thema="scorebord"] .t-liter { font-size: 11px; }
-body[data-thema="scorebord"] .t-tekst .t-nr, body[data-thema="scorebord"] .t-tekst .t-liter { paint-order: stroke; stroke: #0B0800; stroke-width: 3px; }
+/* Het niveau is hier een gedimd veld van brandende LED's; de cijfers blijven altijd amber op zwart leesbaar. */
+body[data-thema="scorebord"] .t-vul { opacity: .38; }
+body[data-thema="scorebord"] .t-tekst-op-vul { display: none; }
+body[data-thema="scorebord"] .t-tekst .t-nr, body[data-thema="scorebord"] .t-tekst .t-liter { paint-order: stroke; stroke: #0B0800; stroke-width: 3.5px; }
+body[data-thema="scorebord"] .t-top .t-vul { opacity: .6; }
+body[data-thema="scorebord"] .t-top .t-tekst { filter: drop-shadow(0 0 3px rgba(255, 176, 0, .9)); }
+body[data-thema="scorebord"] .t-top .t-liter { fill: #FFF1C2; }
 body[data-thema="scorebord"] .teller { filter: drop-shadow(0 0 .25em rgba(255, 176, 0, .55)); }
 body[data-thema="scorebord"] .teller-getal,
 body[data-thema="scorebord"] .mp-getal {
@@ -626,7 +454,6 @@ body[data-thema="scorebord"] .mp-getal {
   font-size: clamp(76px, 25vw, 150px);
 }
 body[data-thema="scorebord"] .merk { filter: drop-shadow(0 0 8px rgba(255, 176, 0, .4)); }
-body[data-thema="scorebord"] .t-tekst-op-vul .t-nr, body[data-thema="scorebord"] .t-tekst-op-vul .t-liter { paint-order: stroke; stroke: #FFB000; stroke-width: 3px; }
 body[data-thema="scorebord"] .kerncijfers dd, body[data-thema="scorebord"] .rl-liter, body[data-thema="scorebord"] .rl-rang { text-shadow: 0 0 10px rgba(255, 176, 0, .55); }
 body[data-thema="scorebord"] .mb-vul { background: radial-gradient(circle, #FFB000 2px, transparent 2.6px) 0 50% / 6px 6px; }
 body[data-thema="scorebord"] .mp-ster { background: #2A1D00; }
@@ -634,65 +461,3 @@ body[data-thema="scorebord"] .td-volg { background: var(--inkt); color: #000; }
 @media (min-width: 1200px) and (min-aspect-ratio: 4/3) {
   body[data-thema="scorebord"] .teller-getal { font-size: min(8.2vw, 20vh); }
 }
-
-/* 6. Blauwdruk: technische tekening op blauwdrukpapier, maatlijnen en arcering */
-body[data-thema="blauwdruk"] {
-  --bg: #0F3A66;
-  --paneel: transparent;
-  --inkt: #EAF2FF;
-  --inkt-zacht: rgba(234, 242, 255, .62);
-  --accent: #FDDF59;
-  --lijn: rgba(234, 242, 255, .7);
-  --vloer: rgba(234, 242, 255, .035);
-  --vloer-rand: #EAF2FF;
-  --vloer-sw: 1.6;
-  --vloer-breuk: rgba(234, 242, 255, .05);
-  --el: rgba(234, 242, 255, .16);
-  --el-tekst: #EAF2FF;
-  --muur: #EAF2FF;
-  --deur: #EAF2FF;
-  --tafel: #0F3A66;
-  --tafel-rand: #EAF2FF;
-  --tafel-sw: 1.1;
-  --tafel-tekst: #EAF2FF;
-  --tafel-tekst-2: rgba(234, 242, 255, .78);
-  --vul: #0F3A66;
-  --vul-2: #FDDF59;
-  --vul-fill: url(#arcering);
-  --grafiek: #FDDF59;
-  --vul-tekst: #FDDF59;
-  --merk: #EAF2FF;
-  --teller: #EAF2FF;
-  --f-teller: 'Big Shoulders Stencil Display', 'Arial Narrow', sans-serif;
-  --f-kop: 'Big Shoulders Stencil Display', 'Arial Narrow', sans-serif;
-  --f-tekst: 'IBM Plex Mono', 'Courier New', monospace;
-  --f-data: 'IBM Plex Mono', 'Courier New', monospace;
-  --f-tafelnr: 'IBM Plex Mono', monospace;
-  --kop-spatie: .12em;
-  --teller-lh: 1.04;
-  color-scheme: dark;
-  background:
-    linear-gradient(rgba(234, 242, 255, .09) 1px, transparent 1px) 0 0 / 120px 120px,
-    linear-gradient(90deg, rgba(234, 242, 255, .09) 1px, transparent 1px) 0 0 / 120px 120px,
-    linear-gradient(rgba(234, 242, 255, .04) 1px, transparent 1px) 0 0 / 24px 24px,
-    linear-gradient(90deg, rgba(234, 242, 255, .04) 1px, transparent 1px) 0 0 / 24px 24px,
-    #0F3A66;
-}
-body[data-thema="blauwdruk"] .teller-getal { font-weight: 900; }
-body[data-thema="blauwdruk"] .zaal-kop h2, body[data-thema="blauwdruk"] .blok-kop, body[data-thema="blauwdruk"] .kerncijfers dd, body[data-thema="blauwdruk"] .rl-liter, body[data-thema="blauwdruk"] .rl-rang, body[data-thema="blauwdruk"] .mijn-liter { font-weight: 700; }
-body[data-thema="blauwdruk"] .t-nr { font-weight: 600; font-size: 12px; }
-body[data-thema="blauwdruk"] .t-liter { font-size: 9.5px; font-weight: 400; }
-body[data-thema="blauwdruk"] .t-tekst-op-vul .t-nr, body[data-thema="blauwdruk"] .t-tekst-op-vul .t-liter { paint-order: stroke; stroke: #0F3A66; stroke-width: 3.5px; }
-body[data-thema="blauwdruk"] .zaal-kop, body[data-thema="blauwdruk"] .blok-kop, body[data-thema="blauwdruk"] .voet, body[data-thema="blauwdruk"] .kerncijfers div { border-width: 1px; }
-body[data-thema="blauwdruk"] .el-label { font-family: var(--f-tekst); font-size: 11px; }
-body[data-thema="blauwdruk"] .teller { padding: 10px 26px; border: 1px solid var(--lijn); }
-body[data-thema="blauwdruk"] .teller::before, body[data-thema="blauwdruk"] .teller::after {
-  content: ""; position: absolute; width: 14px; height: 14px; border: 1px solid var(--accent);
-}
-body[data-thema="blauwdruk"] .teller::before { top: -7px; left: -7px; border-radius: 50%; }
-body[data-thema="blauwdruk"] .teller::after { bottom: -7px; right: -7px; border-radius: 50%; }
-body[data-thema="blauwdruk"] .mb-spoor { border-width: 1px; }
-body[data-thema="blauwdruk"] .mb-vul { background: repeating-linear-gradient(45deg, var(--accent) 0 2px, transparent 2px 6px); }
-body[data-thema="blauwdruk"] .rl-balk { background: linear-gradient(90deg, var(--accent) var(--w), transparent var(--w)); height: 2px; }
-body[data-thema="blauwdruk"] .td-volg { background: var(--accent); color: #0F3A66; border-color: var(--accent); }
-body[data-thema="blauwdruk"] .mp-ster { background: transparent; border: 0; outline: 0; box-shadow: inset 0 0 0 2px var(--accent); }

@@ -14,6 +14,6 @@ Project van Victor (KSA Herentals). Live liters bier per tafel en totaal, gevoed
 
 - Hoe het kassasysteem koppelt (push per bestelling, absolute stand of brug): navragen bij de bouwer. Contract staat in KOPPELING.md.
 - Hoe Grote zaal en Tuinzaal aan elkaar hangen (welke kant, welke deur). Nu twee aparte plannen.
-- Stijlkeuze (zes voorstellen, `?kiezer`).
+- Stijl: Victor koos Stempel en Scorebord (de andere vier voorstellen zijn geschrapt). Nog beslissen welke standaard op de beamer komt.
 - Liters van vorig jaar voor `vorig_jaar_l` in config.js.
 - Productlijst met volumes, als de kassa geen ml meestuurt.

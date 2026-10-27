@@ -21,7 +21,7 @@ kassa ──POST /api/kassa (token)──▶ Cloudflare Worker ──▶ Durable
 | Pad | Inhoud |
 |---|---|
 | `public/index.html` | De pagina (beamer en gsm in één, responsief) |
-| `public/css/app.css` | Basislayout + zes stijlen (`body[data-thema=...]`) |
+| `public/css/app.css` | Basislayout + twee stijlen: Stempel en Scorebord (`body[data-thema=...]`) |
 | `public/js/zaal.js` | Plattegrond: tafelposities uit de vectorlagen van de tafelplan-pdf's |
 | `public/js/bron.js` | Gegevensbron: live (WebSocket met terugval) of demo |
 | `public/js/app.js` | Teller, plan, ranglijst, verloop, mijlpalen, tafeldetail |
@@ -34,7 +34,7 @@ kassa ──POST /api/kassa (token)──▶ Cloudflare Worker ──▶ Durable
 
 - Beamer: `https://<domein>/?beamer` (cursor verdwijnt, scherm blijft wakker, `f` = volledig scherm).
 - Gsm: gewoon `https://<domein>/`. Tik op een tafel voor details, "Dit is mijn tafel" onthoudt je tafel op dat toestel.
-- Stijl kiezen: `?thema=stempel|schuim|vertrekbord|affiche|scorebord|blauwdruk`, of vast in `config.js`.
+- Stijl kiezen: `?thema=stempel` of `?thema=scorebord`, of vast in `config.js`.
 - Demo met verzonnen cijfers: `?demo` (nooit op de beamer tijdens het feest).
 
 ## Lokaal draaien
