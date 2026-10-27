@@ -142,7 +142,7 @@
       for (let m = 240; m > 0; m -= 0.5) {
         const ts = nu - m * 60000 + Math.random() * 30000;
         const perMinuut = 0.35 + Math.sin(((240 - m) / 240) * Math.PI * 0.85) * 1.5;
-        if (Math.random() < perMinuut / 2) this.bestel(ts, m > 4);
+        if (Math.random() < perMinuut / 2) this.bestel(ts, m > 25);
       }
       this.onStatus('demo', 'Demo');
       this.publiceer();

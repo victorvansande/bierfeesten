@@ -293,7 +293,7 @@
   function toonRecent(s) {
     const ul = $('recent');
     const oud = ul.dataset.sleutel;
-    const items = s.recent.slice(0, 6);
+    const items = s.recent.slice(0, 10);   // gsm toont er 6, de beamer vult de kolom
     ul.replaceChildren(...items.map((r, i) => {
       const li = document.createElement('li');
       if (i === 0 && oud && oud !== String(r.ts) + r.t) li.className = 'nieuw';
