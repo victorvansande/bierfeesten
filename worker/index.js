@@ -14,12 +14,13 @@
  * De editie met de naam DEMO_EDITIE is een live voorbeeld met verzonnen bestellingen (demo.js).
  */
 
-import { RESET_MS, STIL_MS, alsWeekend, beginstand, bestelling, tussenIn, volgendeTussentijd } from './demo.js';
+import { DEMO_VERSIE, RESET_MS, STIL_MS, alsWeekend, beginstand, bestelling, tussenIn, volgendeTussentijd } from './demo.js';
 
 const MAX_BATCH = 500;
 const MAX_ML_PER_STUK = 5000;     // 5 L: alles daarboven is bijna zeker een tikfout
 const MAX_AANTAL = 200;
 const RECENT = 12;                 // laatste bestellingen in de stand
+const BIEREN = 5;                  // populairste bieren in de stand
 const EMMER_MS = 5 * 60 * 1000;    // emmers van 5 minuten voor het verloop
 const EMMERS = 48;                 // 4 uur verloop
 const UITZEND_MS = 300;            // hoogstens ~3 uitzendingen per seconde
@@ -64,8 +65,13 @@ export class Telling {
         product TEXT,
         ts INTEGER NOT NULL,
         ontvangen INTEGER NOT NULL,
-        storno INTEGER NOT NULL DEFAULT 0
+        storno INTEGER NOT NULL DEFAULT 0,
+        aantal INTEGER NOT NULL DEFAULT 1
       )`);
+      /* Databases van vóór de kolom "aantal" bijwerken (oude rijen tellen als 1 stuk). */
+      if (!this.sql.exec('PRAGMA table_info(bestelling)').toArray().some(k => k.name === 'aantal')) {
+        this.sql.exec('ALTER TABLE bestelling ADD COLUMN aantal INTEGER NOT NULL DEFAULT 1');
+      }
       this.sql.exec('CREATE INDEX IF NOT EXISTS bestelling_ts ON bestelling(ts)');
       this.editie = await ctx.storage.get('editie');
       this.herbereken();
@@ -81,8 +87,13 @@ export class Telling {
     for (const r of this.sql.exec(`SELECT tafel, SUM(ml) AS ml, SUM(CASE WHEN product = 'standcorrectie' THEN 0 ELSE 1 END) AS n, MAX(ts) AS laatst FROM bestelling WHERE storno = 0 GROUP BY tafel`)) {
       this.boekTotaal(r.tafel, r.ml, r.n, r.laatst);
     }
-    this.recent = [...this.sql.exec(`SELECT id, tafel, ml, product, ts FROM bestelling WHERE storno = 0 AND ml > 0 AND product IS NOT 'standcorrectie' ORDER BY ts DESC LIMIT ${RECENT}`)]
-      .map(r => ({ id: r.id, t: r.tafel, ml: r.ml, p: r.product, ts: r.ts }));
+    this.recent = [...this.sql.exec(`SELECT id, tafel, ml, product, aantal, ts FROM bestelling WHERE storno = 0 AND ml > 0 AND product IS NOT 'standcorrectie' ORDER BY ts DESC LIMIT ${RECENT}`)]
+      .map(r => ({ id: r.id, t: r.tafel, ml: r.ml, p: r.product, a: r.aantal, ts: r.ts }));
+    /* Liters en stuks per bier (productnaam zoals de kassa die doorgeeft). */
+    this.bieren = new Map();
+    for (const r of this.sql.exec(`SELECT product, SUM(ml) AS ml, SUM(aantal) AS n FROM bestelling WHERE storno = 0 AND product IS NOT NULL AND product IS NOT 'standcorrectie' GROUP BY product`)) {
+      this.bieren.set(r.product, { ml: r.ml, n: r.n });
+    }
     /* Liters per feestdag: per uur optellen in SQL, daarna per dag in JS (SQLite kent geen tijdzones). */
     this.dagen = {};
     for (const r of this.sql.exec('SELECT (ts / 3600000) AS u, SUM(ml) AS ml FROM bestelling WHERE storno = 0 GROUP BY u')) {
@@ -116,8 +127,13 @@ export class Telling {
     this.emmers.set(e, (this.emmers.get(e) || 0) + b.ml);
     const d = feestdag(b.ts);
     this.dagen[d] = (this.dagen[d] || 0) + b.ml;
+    if (b.product != null && !b.correctie) {
+      const bier = this.bieren.get(b.product) || { ml: 0, n: 0 };
+      bier.ml += b.ml; bier.n += b.storno ? -b.aantal : b.aantal;
+      if (bier.ml === 0 && bier.n === 0) this.bieren.delete(b.product); else this.bieren.set(b.product, bier);
+    }
     if (b.ml > 0 && !b.correctie && !b.storno) {
-      this.recent.unshift({ id: b.id, t: b.tafel, ml: b.ml, p: b.product, ts: b.ts });
+      this.recent.unshift({ id: b.id, t: b.tafel, ml: b.ml, p: b.product, a: b.aantal, ts: b.ts });
       this.recent.length = Math.min(this.recent.length, RECENT);
     }
   }
@@ -140,6 +156,8 @@ export class Telling {
       bestellingen: this.aantal,
       tafels: this.tafels,
       recent: this.recent.map(({ id, ...r }) => r),
+      bieren: [...this.bieren].filter(([, b]) => b.ml > 0).sort((x, y) => y[1].ml - x[1].ml).slice(0, BIEREN)
+        .map(([p, b]) => ({ p, ml: b.ml, n: b.n })),
       verloop: { emmer_ms: EMMER_MS, begin, ml: verloop },
       dagen,
       vandaag,
@@ -208,11 +226,11 @@ export class Telling {
   async demoBij(vanAlarm) {
     const nu = Date.now();
     const start = await this.ctx.storage.get('demo_start');
-    if (!start || nu - start > RESET_MS) {
+    if (!start || nu - start > RESET_MS || (await this.ctx.storage.get('demo_versie')) !== DEMO_VERSIE) {
       this.ctx.storage.transactionSync(() => this.sql.exec('DELETE FROM bestelling'));
       this.herbereken();
       this.verwerk(beginstand(nu), [], nu);
-      await this.ctx.storage.put({ demo_start: nu, demo_laatste: nu });
+      await this.ctx.storage.put({ demo_start: nu, demo_laatste: nu, demo_versie: DEMO_VERSIE });
       this.planUitzending();
       return;
     }
@@ -273,8 +291,8 @@ export class Telling {
         const b = normaliseer(lijst[i], producten, nu);
         if (b.fout) { resultaat.geweigerd.push({ index: i, id: lijst[i]?.id ?? null, reden: b.fout }); continue; }
         /* Idempotent: een id die al bestaat, wordt stil overgeslagen. */
-        const nieuw = this.sql.exec('INSERT OR IGNORE INTO bestelling (id, tafel, ml, product, ts, ontvangen) VALUES (?, ?, ?, ?, ?, ?)',
-          b.id, b.tafel, b.ml, b.product, b.ts, nu).rowsWritten > 0;
+        const nieuw = this.sql.exec('INSERT OR IGNORE INTO bestelling (id, tafel, ml, product, aantal, ts, ontvangen) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          b.id, b.tafel, b.ml, b.product, b.aantal, b.ts, nu).rowsWritten > 0;
         if (!nieuw) { resultaat.dubbel++; continue; }
         if (b.tafel != null && geldigeTafels && !geldigeTafels.has(b.tafel)) {
           resultaat.waarschuwingen.push({ id: b.id, melding: `Tafel ${b.tafel} staat niet op het plan; de liters tellen wel mee in het totaal.` });
@@ -282,12 +300,12 @@ export class Telling {
         teBoeken.push(b);
       }
       for (const id of storno.map(String)) {
-        const rij = this.sql.exec('SELECT tafel, ml, ts, storno FROM bestelling WHERE id = ?', id).toArray()[0];
+        const rij = this.sql.exec('SELECT tafel, ml, product, aantal, ts, storno FROM bestelling WHERE id = ?', id).toArray()[0];
         if (!rij) { resultaat.geweigerd.push({ id, reden: 'Storno voor een onbekende bestelling.' }); continue; }
         if (rij.storno || gestorneerd.has(id)) { resultaat.dubbel++; continue; }
         this.sql.exec('UPDATE bestelling SET storno = 1 WHERE id = ?', id);
         gestorneerd.add(id);
-        teBoeken.push({ id, tafel: rij.tafel, ml: -rij.ml, ts: rij.ts, storno: true });
+        teBoeken.push({ id, tafel: rij.tafel, ml: -rij.ml, product: rij.product, aantal: rij.aantal, ts: rij.ts, storno: true });
       }
     });
     /* Pas na een geslaagde transactie de totalen in het geheugen bijwerken. */
@@ -367,6 +385,7 @@ function normaliseer(r, producten, nu) {
     id: String(id),
     tafel,
     ml: r.correctie ? mlPerStuk : mlPerStuk * aantal,
+    aantal: r.correctie ? 0 : aantal,
     product: r.product != null ? String(r.product).slice(0, 60) : (r.naam != null ? String(r.naam).slice(0, 60) : null),
     ts,
     correctie: !!r.correctie

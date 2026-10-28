@@ -47,6 +47,14 @@ ok(s.tafels['5'].ml === 0 && s.totaal_ml === 1910 && s.tafels['5'].n === 0, 'sto
 r = await post({ storno: ['b5'] });
 ok(r.data.dubbel === 1, 'dubbele storno genegeerd');
 
+r = await post({ bestellingen: [{ id: 'p1', tafel: 3, ml: 330, aantal: 4, product: 'Tripel' }, { id: 'p2', tafel: 4, ml: 330, product: 'Tripel' }] });
+s = await stand();
+const tripel = s.bieren.find(b => b.p === 'Tripel'), fles = s.bieren.find(b => b.p === 'Flesje 33 cl');
+ok(s.bieren[0].p === 'Tripel' && tripel.ml === 1650 && tripel.n === 5 && fles?.ml === 660 && fles.n === 2 && !s.bieren.some(b => b.p === 'PILS33'),
+  'populairste bieren: liters en stuks per product, gestorneerd bier verdwijnt');
+ok(s.recent.find(x => x.p === 'Tripel' && x.t === '3')?.a === 4, 'laatste bestellingen geven het aantal apart mee');
+await post({ storno: ['p1', 'p2'] });
+
 r = await post({ stand: { tafels: { 12: 2.5, 40: 1.2 } } });
 s = await stand();
 ok(s.tafels['12'].ml === 2500 && s.tafels['40'].ml === 1200 && s.tafels['12'].n === 1, 'absolute stand per tafel zet correcties zonder bestellingen te verdubbelen');

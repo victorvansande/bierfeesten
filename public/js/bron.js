@@ -93,11 +93,12 @@
     constructor(onStand, onStatus) {
       this.onStand = onStand;
       this.onStatus = onStatus;
-      /* Verhoudingen losjes naar de voorlopige bierlijst 2026: vooral flesjes van 33 cl,
-       * tapbier van een vat per glas, en enkele grotere en kleinere flessen. Ter illustratie. */
+      /* Soorten en volumes losjes naar de voorlopige bierlijst 2026 (vooral 33 cl, tapbier per glas,
+       * enkele kleinere en grotere flessen). Bewust geen merknamen: ter illustratie. */
       this.producten = [
-        ['Flesje 33 cl', 330, 0.62], ['Tapbier 33 cl', 330, 0.18], ['Flesje 37,5 cl', 375, 0.08],
-        ['Flesje 25 cl', 250, 0.06], ['Fles 75 cl', 750, 0.06]
+        ['Pils van het vat', 330, 0.18], ['Tripel', 330, 0.18], ['Blond', 330, 0.15], ['Dubbel', 330, 0.10],
+        ['IPA', 330, 0.08], ['Kriek', 250, 0.08], ['Witbier', 250, 0.07], ['Bruin', 330, 0.06],
+        ['Saison', 375, 0.05], ['Grote tripel', 750, 0.05]
       ];
       /* Elke tafel krijgt een eigen dorst, zodat er echte koplopers ontstaan. */
       this.dorst = {};
@@ -105,9 +106,10 @@
       const rnd = () => (zaad = (zaad * 16807) % 2147483647) / 2147483647;
       for (const nr of Object.keys(ZAAL.zaalVan)) this.dorst[nr] = 0.25 + rnd() ** 2.2 * 2.5;
       this.som = Object.values(this.dorst).reduce((a, b) => a + b, 0);
-      this.stand = { v: 1, editie: 'demo', totaal_ml: 0, zonder_tafel_ml: 0, bestellingen: 0, tafels: {}, recent: [], verloop: null, bijgewerkt: Date.now(), server_tijd: Date.now() };
+      this.stand = { v: 1, editie: 'demo', totaal_ml: 0, zonder_tafel_ml: 0, bestellingen: 0, tafels: {}, recent: [], bieren: [], verloop: null, bijgewerkt: Date.now(), server_tijd: Date.now() };
       this.emmers = new Map();
       this.dagen = {};
+      this.bieren = {};
     }
     kiesTafel() {
       let r = Math.random() * this.som;
@@ -135,8 +137,10 @@
       this.emmers.set(e, (this.emmers.get(e) || 0) + totaal);
       const d = feestdag(ts);
       this.dagen[d] = (this.dagen[d] || 0) + totaal;
+      const b = this.bieren[naam] || (this.bieren[naam] = { ml: 0, n: 0 });
+      b.ml += totaal; b.n += aantal;
       if (!stil) {
-        s.recent.unshift({ t: tafel, ml: totaal, p: (aantal > 1 ? aantal + ' × ' : '') + naam, ts });
+        s.recent.unshift({ t: tafel, ml: totaal, p: naam, a: aantal, ts });
         s.recent.length = Math.min(s.recent.length, 12);
       }
     }
@@ -156,6 +160,7 @@
       const recent = echt.slice(-2);
       this.stand.dagen = recent.length === 2 ? [{ dag: zaterdag, ml: recent[0].ml }, { dag: zondag, ml: recent[1].ml }] : recent.map(x => ({ dag: zondag, ml: x.ml }));
       this.stand.vandaag = zondag;
+      this.stand.bieren = Object.entries(this.bieren).sort((x, y) => y[1].ml - x[1].ml).slice(0, 5).map(([p, b]) => ({ p, ...b }));
       this.stand.bijgewerkt = this.stand.server_tijd = nu;
       this.onStand(JSON.parse(JSON.stringify(this.stand)));
     }

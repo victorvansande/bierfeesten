@@ -205,17 +205,17 @@ button { font: inherit; color: inherit; }
 @keyframes tik { from { fill: var(--rood); } to { fill: var(--kaart); } }
 
 /* ---------- 6. Ranglijst en laatste bestellingen ---------- */
-#blok-rang, #blok-recent { min-width: 0; }
-#ranglijst, #recent { list-style: none; margin: 0; padding: 0; }
-#ranglijst li {
+#blok-rang, #blok-bieren, #blok-recent { min-width: 0; }
+#ranglijst, #bieren, #recent { list-style: none; margin: 0; padding: 0; }
+#ranglijst li, #bieren li {
   display: grid;
   grid-template-columns: 2.2em minmax(0, 1fr) auto;
   align-items: baseline;
   gap: 2px 10px;
   padding-block: 8px;
   border-bottom: 1px solid var(--inkt-lijn);
-  cursor: pointer;
 }
+#ranglijst li { cursor: pointer; }
 .rl-rang { font: 400 22px/1 var(--f-kop); color: var(--rood); }
 .rl-naam { display: flex; flex-direction: column; min-width: 0; font-size: 16px; font-weight: 700; }
 .rl-naam small { font-size: 12px; font-weight: 400; color: var(--inkt-zacht); }
@@ -236,7 +236,7 @@ button { font: inherit; color: inherit; }
 .rc-tijd { grid-row: 2; grid-column: 2; text-align: right; font-size: 12px; color: var(--inkt-zacht); }
 #recent li.nieuw { animation: nieuw 1.6s ease-out; }
 @keyframes nieuw { from { background: color-mix(in srgb, var(--rood) 30%, transparent); } to { background: transparent; } }
-#ranglijst li.leeg, #recent li.leeg { display: block; padding-block: 8px; font-style: italic; color: var(--inkt-zacht); cursor: default; }   /* volle breedte, niet in het raster van de lijst */
+#ranglijst li.leeg, #bieren li.leeg, #recent li.leeg { display: block; padding-block: 8px; font-style: italic; color: var(--inkt-zacht); cursor: default; }   /* volle breedte, niet in het raster van de lijst */
 
 /* ---------- 7. Verloop ---------- */
 .verloop { width: 100%; max-width: 460px; margin: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -357,11 +357,12 @@ button { font: inherit; color: inherit; }
 #blok-rang { order: 2; }
 #kaart { order: 3; }
 #blok-recent { order: 4; }
-.verloop-blok { order: 5; display: flex; justify-content: center; }
-.voet { order: 6; }
+#blok-bieren { order: 5; }
+.verloop-blok { order: 6; display: flex; justify-content: center; }
+.voet { order: 7; }
 
 /* Tablet en laptop: twee kolommen. Links teller, verloop en ranglijst; rechts het plan
- * met daaronder de laatste bestellingen. Beide kolommen lopen ongeveer even lang. */
+ * met daaronder de laatste bestellingen en de populairste bieren. Beide kolommen lopen ongeveer even lang. */
 @media (min-width: 900px) {
   .scherm {
     display: grid;
@@ -371,8 +372,8 @@ button { font: inherit; color: inherit; }
     grid-template-areas:
       "midden  kaart"
       "verloop kaart"
-      "rang    kaart"
       "rang    recent"
+      "rang    bieren"
       "voet    voet";
     align-items: start;
     gap: 28px 44px;
@@ -381,6 +382,7 @@ button { font: inherit; color: inherit; }
   .verloop-blok { grid-area: verloop; }
   #kaart { grid-area: kaart; }
   #blok-rang { grid-area: rang; }
+  #blok-bieren { grid-area: bieren; }
   #blok-recent { grid-area: recent; }
   .voet { grid-area: voet; }
 }
@@ -428,8 +430,9 @@ button { font: inherit; color: inherit; }
   #verloop-svg { flex: 1; min-height: 70px; height: auto; }
 
   .blok-kop { font-size: max(20px, 2.5vh); }
-  #blok-rang { flex: none; }
-  #ranglijst li { padding-block: .8vh; }
+  #blok-rang, #blok-bieren { flex: none; }
+  #blok-bieren { order: 3; }   /* onder de ranglijst; de lijst met bestellingen vult de rest */
+  #ranglijst li, #bieren li { padding-block: .8vh; }
   .rl-naam { flex-direction: row; align-items: baseline; gap: 8px; font-size: max(16px, 1.8vh); }
   .rl-rang, .rl-liter { font-size: max(22px, 2.8vh); }
   .rl-balk { height: 3px; }

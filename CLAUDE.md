@@ -37,6 +37,7 @@ Project van Victor (KSA Herentals). Live liters bier per tafel en totaal, gevoed
 - Open twee dagen van 12u tot ±1u à 2u (~27 uur), samen ±1.200 L. Gemiddeld ±45 L/u, avondpieken ±80 à 90 L/u. Demo volgt die verhoudingen.
 - Vorig jaar: zeker 1.000 L (`vorig_jaar_l`), precies getal volgt. Tussendoelen per 250 L.
 - Een bier telt bij de bestelling. Alleen bier telt. Elke bestelling heeft een tafel (geen toogverkoop). De kassa heeft internet. Testmoment met de kassa: vrijdag vóór de opening.
+- Populairste bieren: top 3 op liters per `product`-naam uit de kassa (aantal apart in `aantal`). Demo gebruikt biersoorten zonder merknamen. Wijzigt het formaat van de demobestellingen: `DEMO_VERSIE` in `worker/demo.js` ophogen, dan herstart het live voorbeeld meteen.
 - Tafels wisselen vaak van groep (zoals een café): ranglijst is oké, geen namen bij tafels, geen "mijn tafel"-functie (bewust geschrapt).
 - Wellicht geen beamer; de site is vooral voor gsm's. Geen geluid. Donkere zaal, gele achtergrond is oké.
 - Teller over het weekend én per feestdag (06:00 tot 06:00 Belgische tijd).

@@ -20,6 +20,7 @@ Dit document is voor wie het kassasysteem bouwde. Het beschrijft het enige wat d
 5. **Kan een bestelling achteraf geannuleerd of gewijzigd worden**, en zo ja, kan de kassa dat als storno doorsturen?
 6. **Tapbier van een vat**: hoeveel ml is één glas (33 cl?), en stuurt de kassa dat volume per glas mee?
 7. **Alcoholvrij bier** (11 op de voorlopige lijst): telt dat mee als bier? Dat beslist Victor; de kassa moet het wel kunnen onderscheiden.
+8. **Kan de kassa de naam van het bier meesturen** (`product`)? Dan toont de pagina de populairste bieren. Is die naam geschikt om publiek te tonen, of zijn het interne codes?
 
 ## In het kort
 
@@ -29,7 +30,7 @@ Authorization: Bearer <KASSA_TOKEN>
 Content-Type: application/json
 
 { "bestellingen": [
-    { "id": "bon-4711-2", "tafel": 23, "ml": 330, "aantal": 2, "product": "Flesje 33 cl", "tijd": "2026-10-03T21:14:07+02:00" }
+    { "id": "bon-4711-2", "tafel": 23, "ml": 330, "aantal": 2, "product": "Tripel", "tijd": "2026-10-03T21:14:07+02:00" }
 ] }
 ```
 
@@ -49,7 +50,7 @@ Staat een tafelnummer niet op het plan (1 t/m 71), dan telt de bestelling wel me
 | `tafel` | nee | Tafelnummer 1 t/m 71 (getal of tekst, `"Tafel 23"` mag ook). Leeg, `null` of `0` = verkoop zonder tafel (toog); telt mee in het totaal, niet op het plan. |
 | volume | ja, één van | `ml`, `cl` of `liter`: volume **per stuk** (bij tapbier: per glas). Of `product`: een code die in de lijst `PRODUCTEN` van de server staat (zie onder). |
 | `aantal` | nee, standaard 1 | Aantal stuks. Het totale volume is volume per stuk × aantal. |
-| `product` | nee | Naam voor de lijst "Laatste bestellingen" op het scherm, bv. `Flesje 33 cl`. |
+| `product` | nee | Naam van het bier zoals de kassa het kent, bv. `Tripel`. Verschijnt in "Laatste bestellingen" en telt voor "Populairste bieren" (liters en stuks per naam). Gebruik voor hetzelfde bier altijd exact dezelfde naam en zet het aantal in `aantal`, niet in de naam. Zonder namen blijft het blok "Populairste bieren" weg. |
 | `tijd` | nee | ISO 8601 of Unix-tijd (seconden of milliseconden). Zonder tijd geldt het ontvangstmoment. Een tijd meer dan 5 minuten in de toekomst wordt vervangen door de servertijd. |
 
 Engelse sleutels werken ook (`table`, `qty`, `events`), zodat er zo weinig mogelijk omgezet moet worden.

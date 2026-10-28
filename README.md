@@ -20,14 +20,15 @@ kassa ──POST /api/kassa (token)──▶ Cloudflare Worker ──▶ Durable
 
 ## De pagina
 
-- **Gsm eerst** (95% van de bezoekers): teller met liters per dag, tussendoel, QR-knop, dorstigste tafels, plan, laatste bestellingen, verloop. Tik op een tafel voor details.
+- **Gsm eerst** (95% van de bezoekers): teller met liters per dag, tussendoel, QR-knop, dorstigste tafels, plan, laatste bestellingen, populairste bieren, verloop. Tik op een tafel voor details.
 - **Per dag en over het weekend**: de grote teller telt het weekend, eronder staat elke feestdag apart. Een feestdag loopt van 06:00 tot 06:00, zodat de nacht tot 2u bij de juiste dag hoort.
 - **QR-code delen**: wie de site open heeft, toont een QR-code die iemand anders scant. De code wordt in de browser gemaakt (qrcode-generator, MIT, in `public/js/vendor/`).
 - **Plattegrond**: tafelposities uit de vectorlagen van de tafelplan-pdf's. Op groot scherm één plan, tuinzaal links en grote zaal rechts, uitgelijnd op de twee verbindingsdeuren. Op gsm onder elkaar, met de deuren aangeduid. De lege middenzone van de grote zaal wordt smaller getekend, met een breuklijn (`plan_inkorten` in `config.js`).
+- **Populairste bieren**: top 3 op liters, met het aantal stuks, op basis van de productnaam die de kassa meestuurt. Stuurt de kassa geen namen, dan blijft het blok weg.
 - **Tussendoelen**: elke 250 L een feestmoment, het record van vorig jaar (1.000 L) als apart doel.
 - **Beamer**: `https://<domein>/?beamer` (cursor verdwijnt, scherm blijft wakker, `f` = volledig scherm). Alles past op één scherm.
 - **Op het beginscherm**: installeerbaar als app ("Herentalse Bierfeesten", op het beginscherm "Bierfeesten" omdat iOS lange namen afkapt). iOS krijgt een glazen ster in de stijl van iOS 26, Android een maskable Material-icoon (cirkel, druppel of squircle naargelang het toestel) en een monochrome versie voor themakleuren.
-- **Bij slecht wifi**: de pagina en de laatst gekende stand blijven op het toestel bewaard. Zonder netwerk opent de site meteen, met bovenaan een rode band "Geen verbinding" en het uur van de getoonde stand. De telling zelf gaat nooit via de cache.
+- **Bij slecht wifi**: de pagina en de laatst gekende stand blijven op het toestel bewaard. Zonder netwerk opent de site meteen, met onderaan een band "Geen verbinding" en het uur van de getoonde stand. De telling zelf gaat nooit via de cache.
 - **Gedeelde link** toont het logo met de naam en een korte zin (Open Graph). Het adres staat vast in `index.html`: bij een eigen domein daar aanpassen.
 - **Demo** met verzonnen, realistische cijfers: `?demo`. Nooit op de beamer tijdens het feest.
 - **Live voorbeeld op de server** (tijdelijk aan op de hoofdpagina): de editie `demo` verzint zelf bestellingen via een alarm van het Durable Object, zodat iedereen dezelfde cijfers live ziet oplopen. Om de 4 uur begint het opnieuw; zonder kijkers stopt het na een halfuur. Uitzetten: `editie` weghalen uit `public/js/config.js`. Code: `worker/demo.js`.

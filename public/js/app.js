@@ -318,12 +318,24 @@
       : '<li class="leeg">Nog geen bestellingen</li>';
   }
 
+  /* Populairste bieren: top 3 op liters, zoals de kassa de producten noemt.
+   * Geeft de kassa geen productnamen door, dan blijft het blok weg (enkel zodra er bestellingen zijn,
+   * zodat er bij de start niets verspringt). */
+  function toonBieren(s) {
+    const lijst = (s.bieren || []).slice(0, 3);
+    $('blok-bieren').hidden = !lijst.length && s.bestellingen > 0;
+    const max = lijst[0]?.ml || 1;
+    $('bieren').innerHTML = lijst.length
+      ? lijst.map((b, i) => `<li><span class="rl-rang">${i + 1}</span><span class="rl-naam">${html(b.p)}<small>${fmt0.format(b.n)} ${b.n === 1 ? 'stuk' : 'stuks'}</small></span><span class="rl-liter">${vast(liter(b.ml))} L</span><span class="rl-balk" style="--w:${(b.ml / max * 100).toFixed(1)}%"></span></li>`).join('')
+      : '<li class="leeg">Nog geen bestellingen</li>';
+  }
+
   function toonRecent(s) {
     const ul = $('recent');
     const sleutel = r => `${r.ts}-${r.t}-${r.ml}`;
     const vorige = ul.dataset.sleutel;
     ul.innerHTML = s.recent.length
-      ? s.recent.map((r, i) => `<li${i === 0 && vorige && vorige !== sleutel(r) ? ' class="nieuw"' : ''}><span class="rc-tafel">${r.t ? 'Tafel ' + html(r.t) : 'Zonder tafel'}</span><span class="rc-wat">${r.p ? html(r.p) : ''}</span><span class="rc-ml">+${liter(r.ml)} L</span><span class="rc-tijd" data-ts="${r.ts}">${geleden(r.ts)}</span></li>`).join('')
+      ? s.recent.map((r, i) => `<li${i === 0 && vorige && vorige !== sleutel(r) ? ' class="nieuw"' : ''}><span class="rc-tafel">${r.t ? 'Tafel ' + html(r.t) : 'Zonder tafel'}</span><span class="rc-wat">${r.p ? (r.a > 1 ? r.a + ' × ' : '') + html(r.p) : ''}</span><span class="rc-ml">+${liter(r.ml)} L</span><span class="rc-tijd" data-ts="${r.ts}">${geleden(r.ts)}</span></li>`).join('')
       : '<li class="leeg">Wachten op de eerste bestelling</li>';
     ul.dataset.sleutel = s.recent[0] ? sleutel(s.recent[0]) : '';
     pasRecentAan();
@@ -529,6 +541,7 @@
     toonDagen(s);
     toonDoelen(s, eerste);
     toonRanglijst(s);
+    toonBieren(s);
     toonRecent(s);
     tekenVerloop();
     toonVoet();

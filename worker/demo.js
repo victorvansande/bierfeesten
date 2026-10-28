@@ -16,12 +16,16 @@
  */
 
 export const RESET_MS = 4 * 3600 * 1000;
+/* Ophogen als het formaat van de verzonnen bestellingen verandert: het voorbeeld begint dan meteen opnieuw. */
+export const DEMO_VERSIE = 2;
 const STIL_MS = 30 * 60 * 1000;          // zonder kijkers stoppen na een halfuur
 const GEM_TUSSENTIJD_MS = 35 * 1000;     // gemiddeld één bestelling per 35 s
 
+/* Biersoorten zonder merknamen; volumes zoals op de lijst (vooral 33 cl, tapbier per glas). */
 const PRODUCTEN = [
-  ['Flesje 33 cl', 330, 0.62], ['Tapbier 33 cl', 330, 0.18], ['Flesje 37,5 cl', 375, 0.08],
-  ['Flesje 25 cl', 250, 0.06], ['Fles 75 cl', 750, 0.06]
+  ['Pils van het vat', 330, 0.18], ['Tripel', 330, 0.18], ['Blond', 330, 0.15], ['Dubbel', 330, 0.10],
+  ['IPA', 330, 0.08], ['Kriek', 250, 0.08], ['Witbier', 250, 0.07], ['Bruin', 330, 0.06],
+  ['Saison', 375, 0.05], ['Grote tripel', 750, 0.05]
 ];
 const TAFELS = Array.from({ length: 71 }, (_, i) => String(i + 1));
 
@@ -50,8 +54,7 @@ export function bestelling(ts) {
   const aantal = 1 + Math.floor(Math.random() ** 2 * 4);
   return {
     id: `demo-${ts}-${Math.random().toString(36).slice(2, 8)}`,
-    tafel: kiesTafel(), ml, aantal,
-    product: (aantal > 1 ? `${aantal} × ` : '') + naam,
+    tafel: kiesTafel(), ml, aantal, product: naam,
     tijd: ts
   };
 }
