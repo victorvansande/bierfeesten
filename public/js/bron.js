@@ -19,8 +19,8 @@
       this.pogingen = 0;
       this.pollTimer = null;
       this.ws = null;
-      /* ?editie=2025 bekijkt een vorige editie of een testtelling */
-      const ed = new URLSearchParams(location.search).get('editie');
+      /* ?editie=2025 bekijkt een vorige editie of een testtelling; zonder parameter geldt config.editie */
+      const ed = new URLSearchParams(location.search).get('editie') || window.BF_CONFIG?.editie;
       this.qs = ed ? '?editie=' + encodeURIComponent(ed) : '';
     }
     start() {

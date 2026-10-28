@@ -4,6 +4,9 @@
  *   ?editie=  een vorige editie of een testtelling bekijken
  */
 window.BF_CONFIG = {
+  /* TIJDELIJK: de site toont het live voorbeeld (verzonnen bestellingen, op de server).
+   * Vóór het testmoment met de kassa en zeker vóór het feest: deze regel weghalen of op '' zetten. */
+  editie: 'demo',
   bron: 'live',          // 'live' = Worker-API, 'demo' = simulatie in de browser
   api: '',               // leeg = zelfde domein; anders bv. 'https://bierfeesten.example.workers.dev'
   tussendoel_l: 250,     // elke 250 L een feestmoment op de beamer

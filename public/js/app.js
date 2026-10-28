@@ -51,14 +51,14 @@
   /* ---- 2. Plattegrond ----
    * Groot scherm: één plan met beide zalen naast elkaar, zoals in het echt.
    * Gsm: elke zaal apart onder elkaar (anders worden de tafels te klein), met
-   * de verbindingsdeuren aangeduid. De lege middenzone van de grote zaal kan
-   * smaller getekend worden; een gestippelde breuklijn toont waar. */
+   * de verbindingsdeuren aangeduid. De lege middenzone van de grote zaal (tussen de
+   * linker- en rechterrij tafels) wordt smaller getekend, zodat de tafels groter blijven. */
   const BREUK = { van: 125, tot: 410, nieuw: 64 };   // 64: tafels 38 en 39 (56,5 breed) passen er nog in
   function maakFx(zaal, inkorten) {
-    if (!inkorten || zaal.id !== 'grote-zaal') return { fx: x => x, breedte: zaal.breedte, breuk: null };
+    if (!inkorten || zaal.id !== 'grote-zaal') return { fx: x => x, breedte: zaal.breedte };
     const f = BREUK.nieuw / (BREUK.tot - BREUK.van);
     const fx = x => x <= BREUK.van ? x : x >= BREUK.tot ? x - (BREUK.tot - BREUK.van) + BREUK.nieuw : BREUK.van + (x - BREUK.van) * f;
-    return { fx, breedte: fx(zaal.breedte), breuk: [BREUK.van, BREUK.van + BREUK.nieuw] };
+    return { fx, breedte: fx(zaal.breedte) };
   }
   /* Pad met absolute commando's (M L H V A Z) horizontaal herschalen. */
   function padFx(d, fx) {
@@ -77,18 +77,16 @@
   const zaalSomEls = {};   // zaal-id -> text-element met de liters van die zaal
 
   function tekenZaal(zaal, ouder, inkorten) {
-    const { fx, breedte, breuk } = maakFx(zaal, inkorten);
+    const { fx, breedte } = maakFx(zaal, inkorten);
     el('rect', { class: 'vloer', x: 0, y: 0, width: breedte, height: zaal.hoogte, rx: 3 }, ouder);
-    if (breuk) {
-      el('rect', { class: 'breuk-zone', x: breuk[0], y: 0, width: breuk[1] - breuk[0], height: zaal.hoogte }, ouder);
-      el('path', { class: 'breuk', d: `M${breuk[0]} 0V${zaal.hoogte}M${breuk[1]} 0V${zaal.hoogte}` }, ouder);
-    }
     for (const e of zaal.elementen) {
       el('path', { class: 'el el-' + e.soort, d: padFx(e.pad, fx) }, ouder);
       if (!e.label) continue;
+      /* Een label met een breedte (labelBereik) blijft gecentreerd op het element, ook als de zaal ingekort is. */
       const [lx, ly] = e.labelPos;
-      const t = el('text', { class: 'el-label el-label-' + e.soort, x: fx(lx), y: ly, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, ouder);
-      if (e.draai) t.setAttribute('transform', `rotate(${e.draai} ${fx(lx)} ${ly})`);
+      const x = e.labelBereik ? (fx(e.labelBereik[0]) + fx(e.labelBereik[1])) / 2 : fx(lx);
+      const t = el('text', { class: 'el-label el-label-' + e.soort, x, y: ly, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, ouder);
+      if (e.draai) t.setAttribute('transform', `rotate(${e.draai} ${x} ${ly})`);
       t.textContent = e.label;
     }
     el('text', { class: 'zaal-naam', x: 2, y: -9 }, ouder).textContent = zaal.naam;
@@ -463,9 +461,19 @@
     vulDetail();
   }, 15000);
 
+  /* Het live voorbeeld van de server is altijd duidelijk gemarkeerd. */
+  function toonDemoBand(s) {
+    const band = $('demo-band');
+    if (!s.demo || cfg.bron === 'demo') return;
+    const uren = Math.round((s.demo_reset_ms || 0) / 3600000);
+    band.firstElementChild.innerHTML = `<b>Live voorbeeld</b> met verzonnen bestellingen: zo ziet de teller eruit tijdens de Bierfeesten.${uren ? ` Begint om de ${uren} uur opnieuw.` : ''}`;
+    band.hidden = false;
+  }
+
   function onStand(s) {
     const eerste = !laatsteStand;
     laatsteStand = s;
+    toonDemoBand(s);
     tekenTeller(s.totaal_ml, eerste);
     toonTafels(s, eerste);
     toonKerncijfers(s);

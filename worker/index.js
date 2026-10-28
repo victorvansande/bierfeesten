@@ -11,7 +11,10 @@
  *   GET  /api/gezondheid     eenvoudige check voor monitoring
  *
  * Het invoerformaat staat beschreven in KOPPELING.md.
+ * De editie met de naam DEMO_EDITIE is een live voorbeeld met verzonnen bestellingen (demo.js).
  */
+
+import { RESET_MS, STIL_MS, beginstand, bestelling, tussenIn, volgendeTussentijd } from './demo.js';
 
 const MAX_BATCH = 500;
 const MAX_ML_PER_STUK = 5000;     // 5 L: alles daarboven is bijna zeker een tikfout
@@ -36,7 +39,10 @@ export default {
 
     const editie = (url.searchParams.get('editie') || env.EDITIE || 'test').slice(0, 20);
     const stub = env.TELLING.get(env.TELLING.idFromName(editie));
-    return stub.fetch(req);
+    /* Het Durable Object kent zijn eigen naam niet; geef die mee, zodat het weet of het de demo is. */
+    const doorgegeven = new Request(req);
+    doorgegeven.headers.set('x-editie', editie);
+    return stub.fetch(doorgegeven);
   }
 };
 
@@ -57,6 +63,7 @@ export class Telling {
         storno INTEGER NOT NULL DEFAULT 0
       )`);
       this.sql.exec('CREATE INDEX IF NOT EXISTS bestelling_ts ON bestelling(ts)');
+      this.editie = await ctx.storage.get('editie');
       this.herbereken();
     });
   }
@@ -119,7 +126,8 @@ export class Telling {
     for (const k of this.emmers.keys()) if (k < begin) this.emmers.delete(k);
     return {
       v: 1,
-      editie: this.env.EDITIE,
+      editie: this.editie || this.env.EDITIE,
+      ...(this.isDemo() ? { demo: true, demo_reset_ms: RESET_MS } : {}),
       totaal_ml: this.totaal,
       zonder_tafel_ml: this.zonderTafel,
       bestellingen: this.aantal,
@@ -135,6 +143,9 @@ export class Telling {
 
   async fetch(req) {
     const url = new URL(req.url);
+    const editie = req.headers.get('x-editie');
+    if (editie && editie !== this.editie) { this.editie = editie; await this.ctx.storage.put('editie', editie); }
+    if (this.isDemo()) await this.demoWek();
     switch (url.pathname) {
       case '/api/stand':
         return json(this.stand(), { 'cache-control': 'no-store' });
@@ -158,6 +169,49 @@ export class Telling {
    * behalve een ping om de verbinding te testen. */
   webSocketMessage(ws, bericht) {
     if (bericht === 'ping') ws.send('pong');
+    this.laatsteKijker = Date.now();
+  }
+
+  /* ---- Live voorbeeld (enkel in de demo-editie) ---- */
+  isDemo() {
+    return !!this.env.DEMO_EDITIE && this.editie === this.env.DEMO_EDITIE;
+  }
+
+  /* Bij elke kijker: zorgen dat het voorbeeld loopt. Stond het stil, dan eerst de tussentijd aanvullen. */
+  async demoWek() {
+    this.laatsteKijker = Date.now();
+    if (await this.ctx.storage.getAlarm() == null) {
+      await this.demoBij(false);
+      await this.ctx.storage.setAlarm(Date.now() + volgendeTussentijd());
+    }
+  }
+
+  async alarm() {
+    if (!this.isDemo()) return;
+    const kijkers = this.ctx.getWebSockets().length;
+    /* Niemand meer aan het kijken: stoppen. De volgende kijker wekt het voorbeeld weer. */
+    if (!kijkers && Date.now() - (this.laatsteKijker || 0) > STIL_MS) return;
+    await this.demoBij(true);
+    await this.ctx.storage.setAlarm(Date.now() + volgendeTussentijd());
+  }
+
+  /* Het voorbeeld bijwerken: om de 4 uur opnieuw beginnen, anders aanvullen tot nu (en eventueel één nieuwe bestelling). */
+  async demoBij(nieuweBestelling) {
+    const nu = Date.now();
+    const start = await this.ctx.storage.get('demo_start');
+    if (!start || nu - start > RESET_MS) {
+      this.ctx.storage.transactionSync(() => this.sql.exec('DELETE FROM bestelling'));
+      this.herbereken();
+      this.verwerk(beginstand(nu), [], nu);
+      await this.ctx.storage.put({ demo_start: nu, demo_laatste: nu });
+      this.planUitzending();
+      return;
+    }
+    const laatste = (await this.ctx.storage.get('demo_laatste')) || nu;
+    const lijst = tussenIn(laatste, nu);
+    if (nieuweBestelling) lijst.push(bestelling(nu));
+    if (lijst.length) this.verwerk(lijst, [], nu);
+    await this.ctx.storage.put('demo_laatste', nu);
   }
   webSocketClose(ws, code) { try { ws.close(code, 'tot later'); } catch {} }
   webSocketError() {}
@@ -176,10 +230,7 @@ export class Telling {
     let body;
     try { body = await req.json(); } catch { return json({ fout: 'Body is geen geldige JSON.' }, {}, 400); }
 
-    const producten = leesProducten(this.env.PRODUCTEN);
-    const geldigeTafels = leesTafels(this.env.TAFELS);
     const nu = Date.now();
-    const resultaat = { aanvaard: 0, dubbel: 0, geweigerd: [], waarschuwingen: [] };
 
     /* Vorm 1: losse bestellingen (aanbevolen). Een object zonder "bestellingen" telt als één bestelling. */
     let lijst = [].concat(body.bestellingen || body.events || (body.id != null ? [body] : []));
@@ -191,6 +242,16 @@ export class Telling {
     if (body.stand) lijst = lijst.concat(this.standNaarCorrecties(body.stand, nu));
 
     if (lijst.length + storno.length > MAX_BATCH) return json({ fout: `Maximaal ${MAX_BATCH} regels per oproep.` }, {}, 413);
+
+    const resultaat = this.verwerk(lijst, storno, nu);
+    return json(resultaat, {}, resultaat.geweigerd.length && !resultaat.aanvaard && !resultaat.dubbel ? 422 : 200);
+  }
+
+  /* Bestellingen en storno's opslaan en boeken. Gedeeld door de kassa-invoer en de demo. */
+  verwerk(lijst, storno, nu) {
+    const producten = leesProducten(this.env.PRODUCTEN);
+    const geldigeTafels = leesTafels(this.env.TAFELS);
+    const resultaat = { aanvaard: 0, dubbel: 0, geweigerd: [], waarschuwingen: [] };
 
     /* De hele zending als één transactie: ofwel alles in de database, ofwel niets. */
     const teBoeken = [];
@@ -227,7 +288,7 @@ export class Telling {
       this.planUitzending();
     }
     resultaat.totaal_ml = this.totaal;
-    return json(resultaat, {}, resultaat.geweigerd.length && !resultaat.aanvaard && !resultaat.dubbel ? 422 : 200);
+    return resultaat;
   }
 
   /* Een absolute stand omzetten naar correctieregels, zodat er maar één

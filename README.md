@@ -27,6 +27,7 @@ kassa ──POST /api/kassa (token)──▶ Cloudflare Worker ──▶ Durable
 - **Tussendoelen**: elke 250 L een feestmoment, het record van vorig jaar (1.000 L) als apart doel.
 - **Beamer**: `https://<domein>/?beamer` (cursor verdwijnt, scherm blijft wakker, `f` = volledig scherm). Alles past op één scherm.
 - **Demo** met verzonnen, realistische cijfers: `?demo`. Nooit op de beamer tijdens het feest.
+- **Live voorbeeld op de server** (tijdelijk aan op de hoofdpagina): de editie `demo` verzint zelf bestellingen via een alarm van het Durable Object, zodat iedereen dezelfde cijfers live ziet oplopen. Om de 4 uur begint het opnieuw; zonder kijkers stopt het na een halfuur. Uitzetten: `editie` weghalen uit `public/js/config.js`. Code: `worker/demo.js`.
 
 ## Bestanden
 

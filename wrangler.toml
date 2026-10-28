@@ -15,6 +15,9 @@ binding = "ASSETS"
 EDITIE = "2026"
 # Tafels op het plan. Bestellingen voor een andere tafel tellen mee, maar geven een waarschuwing terug.
 TAFELS = "1-71"
+# Live voorbeeld met verzonnen bestellingen, enkel in deze editie (bekijken met ?editie=demo).
+# Raakt de echte telling nooit. Leegmaken of weglaten = geen voorbeeld meer.
+DEMO_EDITIE = "demo"
 # Optioneel: productcode -> ml per stuk, voor als de kassa geen volume meestuurt.
 PRODUCTEN = '{"PILS25": 250, "PILS33": 330, "SPEC33": 330, "PINT50": 500, "KAN100": 1000}'
 # KASSA_TOKEN is een geheim: `npx wrangler secret put KASSA_TOKEN` (lokaal: .dev.vars)

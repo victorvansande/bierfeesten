@@ -140,20 +140,16 @@ button { font: inherit; color: inherit; }
 .zaal-kaart { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .plan { display: flex; flex-direction: column; gap: 22px; min-height: 0; }
 .plan-svg { display: block; width: 100%; height: auto; overflow: visible; }
-.plan-noot { margin: 0; font-size: 12px; color: var(--inkt-zacht); }
-.plan[data-weergave="samen"] + .plan-noot { display: none; }
 
 .zaal-naam { font: 400 22px var(--f-kop); fill: var(--inkt); text-transform: uppercase; letter-spacing: .04em; }
 .zaal-som { font: 700 16px var(--f-tekst); fill: var(--inkt); font-variant-numeric: tabular-nums; }
 .vloer { fill: var(--papier); stroke: var(--inkt); stroke-width: 3; }
-.breuk-zone { fill: rgba(21, 17, 16, .06); }
-.breuk { fill: none; stroke: var(--inkt-zacht); stroke-width: 1.2; stroke-dasharray: 5 5; }
 .tussenmuur { fill: none; stroke: var(--inkt); }
 .doorgang { fill: none; stroke: var(--rood); stroke-width: 2; stroke-dasharray: 3 3; }
 .doorgang-label { font: 700 10px var(--f-tekst); fill: var(--rood); letter-spacing: .04em; }
 
 .el-toog, .el-kassa, .el-scherm, .el-podium { fill: var(--inkt); }
-.el-kassa { fill: color-mix(in srgb, var(--inkt) 78%, var(--papier)); }
+.el-kassa { stroke: var(--papier); stroke-width: 2; }   /* zwart zoals de toog, met een dunne gele naad ertussen */
 .el-muur { fill: none; stroke: var(--inkt); stroke-width: 3.5; stroke-linecap: round; }
 .el-deur { fill: none; stroke: var(--inkt); stroke-width: 1.5; stroke-dasharray: 3 3; opacity: .8; }
 .el-label { font: 400 15px var(--f-kop); fill: var(--geel); text-transform: uppercase; letter-spacing: .08em; pointer-events: none; }
@@ -204,7 +200,7 @@ button { font: inherit; color: inherit; }
 .rc-tijd { grid-row: 2; grid-column: 2; text-align: right; font-size: 12px; color: var(--inkt-zacht); }
 #recent li.nieuw { animation: nieuw 1.6s ease-out; }
 @keyframes nieuw { from { background: color-mix(in srgb, var(--rood) 30%, transparent); } to { background: transparent; } }
-li.leeg { padding-block: 8px; font-style: italic; color: var(--inkt-zacht); cursor: default; }
+#ranglijst li.leeg, #recent li.leeg { display: block; padding-block: 8px; font-style: italic; color: var(--inkt-zacht); cursor: default; }   /* volle breedte, niet in het raster van de lijst */
 
 /* ---------- 7. Verloop ---------- */
 .verloop { width: 100%; max-width: 460px; margin: 0; display: flex; flex-direction: column; gap: 4px; }

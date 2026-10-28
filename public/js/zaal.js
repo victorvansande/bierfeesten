@@ -40,7 +40,7 @@ window.ZAAL = {
       },
       elementen: [
         { soort: 'toog', label: 'Toog', pad: 'M3.8 570.2H66.6V772H218.5V810.9H3.8Z', labelPos: [35, 690], draai: -90 },
-        { soort: 'kassa', label: 'Kassa', pad: 'M66.6 772H218.5V810.9H66.6Z', labelPos: [142, 792] },
+        { soort: 'kassa', label: 'Kassa', pad: 'M66.6 772H218.5V810.9H66.6Z', labelPos: [142, 792], labelBereik: [66.6, 218.5] },
         { soort: 'scherm', label: 'Projector', pad: 'M0 266H20V331H0Z', labelPos: [10, 298], draai: -90 },
         { soort: 'muur', pad: 'M117.6 557V747.5H240.9' },
         { soort: 'muur', pad: 'M0.4 503.5L80.5 515.1' },

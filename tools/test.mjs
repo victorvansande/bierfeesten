@@ -66,6 +66,11 @@ const dag = Object.fromEntries(s.dagen.map(d => [d.dag, d.ml]));
 ok(dag['2026-10-02'] === 660 && dag['2026-10-03'] === 250, 'liters per feestdag (nacht telt bij de vorige dag): ' + JSON.stringify(dag));
 ok(typeof s.vandaag === 'string' && /^\d{4}-\d\d-\d\d$/.test(s.vandaag), 'stand geeft de huidige feestdag mee');
 
+/* Live voorbeeld: enkel in de demo-editie, nooit in een andere. */
+const demo = await fetch(`${BASIS}/api/stand?editie=demo`).then(r => r.json());
+ok(demo.demo === true && demo.totaal_ml > 600000 && demo.recent.length > 0, `demo-editie loopt vanzelf (${(demo.totaal_ml / 1000).toFixed(1)} L, ${demo.dagen.length} dagen)`);
+ok(!s.demo && !(await stand()).demo, 'andere edities zijn nooit demo');
+
 await new Promise(r => setTimeout(r, 700));
 const laatste = berichten.at(-1)?.stand;
 ok(berichten.length >= 2 && laatste?.totaal_ml === s.totaal_ml, `WebSocket-kijker kreeg ${berichten.length} updates, laatste stand klopt`);
