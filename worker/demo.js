@@ -83,3 +83,18 @@ export function volgendeTussentijd() {
 }
 
 export { STIL_MS };
+
+/* Het voorbeeld speelt altijd op een weekend: het echte feest valt op zaterdag en zondag.
+ * De twee recentste feestdagen krijgen de data van de laatste zaterdag en zondag
+ * (vandaag = zondag), zodat de pagina "Zaterdag" en "Zondag · vandaag" toont. */
+export function alsWeekend(dagen, vandaag) {
+  const d = new Date(vandaag + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() - d.getUTCDay());          // laatste zondag (vandaag zelf als het zondag is)
+  const zondag = d.toISOString().slice(0, 10);
+  d.setUTCDate(d.getUTCDate() - 1);
+  const zaterdag = d.toISOString().slice(0, 10);
+  const recent = dagen.slice(-2);
+  const nieuw = recent.length === 2 ? [{ dag: zaterdag, ml: recent[0].ml }, { dag: zondag, ml: recent[1].ml }] : recent.map(x => ({ dag: zondag, ml: x.ml }));
+  return { dagen: nieuw, vandaag: zondag };
+}
+

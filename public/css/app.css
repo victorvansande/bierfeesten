@@ -66,6 +66,18 @@ button { font: inherit; color: inherit; }
 }
 @media (min-width: 1200px) and (min-aspect-ratio: 4/3) { .verbinding-band { flex: none; } }
 
+/* Laadscherm. Verdwijnt zodra de eerste stand er is; als vangnet ook vanzelf na 6 s (bv. bij een scriptfout). */
+.laden {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center;
+  background: var(--geel);
+  animation: laden-weg .3s 6s forwards;
+}
+.laden .merk-logo { width: min(78vw, 420px); translate: 0 -4vh; animation: laden-in .5s cubic-bezier(.2, 1.2, .4, 1); }
+.laden.weg { opacity: 0; visibility: hidden; transition: opacity .3s, visibility 0s .3s; }
+@keyframes laden-weg { to { opacity: 0; visibility: hidden; } }
+@keyframes laden-in { from { opacity: 0; scale: .94; } }
+
 /* Koppen van de blokken: Anton in kapitalen met een inktlijn eronder. */
 .blok-kop {
   margin: 0 0 4px;

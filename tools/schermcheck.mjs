@@ -57,12 +57,14 @@ for (const f of FORMATEN) {
       scroll: document.documentElement.scrollWidth, vw, uitsteek,
       tafels: tafels.length, kleinste, nrHoogte: Math.min(...nrs),
       tellerZichtbaar: teller.top >= 0 && teller.bottom <= innerHeight,
+      laadschermWeg: document.getElementById('laden').hidden,
       tellerRechts: teller.right
     };
   });
   meld(r.scroll <= r.vw, `${f.naam}: geen horizontaal scrollen (${r.scroll} ≤ ${r.vw})${r.uitsteek.length ? ' steekt uit: ' + r.uitsteek.join(', ') : ''}`);
   meld(r.tafels === 71, `${f.naam}: alle 71 tafels getekend (${r.tafels})`);
   meld(r.tellerZichtbaar, `${f.naam}: teller volledig zichtbaar zonder scrollen`);
+  meld(r.laadschermWeg, `${f.naam}: laadscherm verdwenen na de eerste stand`);
   meld(fout.length === 0, `${f.naam}: geen fouten in de console${fout.length ? ': ' + fout.join(' | ') : ''}`);
   if (f.gsm) {
     /* Apple en Google raden ~44 px aan voor aanraakdoelen; een tafel moet minstens 28 px zijn om er betrouwbaar op te tikken. */

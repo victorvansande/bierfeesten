@@ -146,8 +146,16 @@
       const ml = [];
       for (let e = begin; e <= nu; e += EMMER_MS) ml.push(this.emmers.get(e) || 0);
       this.stand.verloop = { emmer_ms: EMMER_MS, begin, ml };
-      this.stand.dagen = Object.entries(this.dagen).sort().map(([dag, ml]) => ({ dag, ml }));
-      this.stand.vandaag = feestdag(nu);
+      /* Net als het voorbeeld op de server: altijd zaterdag en zondag, vandaag = zondag. */
+      const echt = Object.entries(this.dagen).sort().map(([dag, ml]) => ({ dag, ml }));
+      const d = new Date(feestdag(nu) + 'T12:00:00Z');
+      d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+      const zondag = d.toISOString().slice(0, 10);
+      d.setUTCDate(d.getUTCDate() - 1);
+      const zaterdag = d.toISOString().slice(0, 10);
+      const recent = echt.slice(-2);
+      this.stand.dagen = recent.length === 2 ? [{ dag: zaterdag, ml: recent[0].ml }, { dag: zondag, ml: recent[1].ml }] : recent.map(x => ({ dag: zondag, ml: x.ml }));
+      this.stand.vandaag = zondag;
       this.stand.bijgewerkt = this.stand.server_tijd = nu;
       this.onStand(JSON.parse(JSON.stringify(this.stand)));
     }

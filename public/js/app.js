@@ -497,7 +497,14 @@
   /* uitCache: de getoonde stand komt van het toestel. De eerste echte stand daarna telt als "eerste":
    * geen feestmoment voor een tussendoel dat al lang gehaald was, geen knipperende tafels. */
   let uitCache = false;
+  function verbergLaden() {
+    const l = $('laden');
+    if (!l || l.classList.contains('weg')) return;
+    l.classList.add('weg');
+    setTimeout(() => { l.hidden = true; }, 350);
+  }
   function onStand(s, vanToestel = false) {
+    verbergLaden();
     const eerste = !laatsteStand || uitCache;
     uitCache = vanToestel;
     laatsteStand = s;
@@ -529,6 +536,7 @@
 
   bouwPlannen();
   tekenTeller(0, true);
+  setTimeout(verbergLaden, 4000);   // geen stand binnen 4 s: toch de pagina tonen, met "Verbinden…" of "Geen verbinding"
   if (cfg.bron === 'demo') {
     $('demo-band').hidden = false;
     new BRON.DemoBron(onStand, onStatus).start();

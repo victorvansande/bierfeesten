@@ -70,6 +70,8 @@ ok(typeof s.vandaag === 'string' && /^\d{4}-\d\d-\d\d$/.test(s.vandaag), 'stand 
 const demo = await fetch(`${BASIS}/api/stand?editie=demo`).then(r => r.json());
 ok(demo.demo === true && demo.totaal_ml > 600000 && demo.recent.length > 0, `demo-editie loopt vanzelf (${(demo.totaal_ml / 1000).toFixed(1)} L, ${demo.dagen.length} dagen)`);
 ok(!s.demo && !(await stand()).demo, 'andere edities zijn nooit demo');
+const wd = d => new Date(d + 'T12:00:00Z').getUTCDay();
+ok(demo.dagen.length === 2 && wd(demo.dagen[0].dag) === 6 && wd(demo.dagen[1].dag) === 0 && demo.vandaag === demo.dagen[1].dag, 'demo speelt op zaterdag en zondag (vandaag = zondag)');
 
 await new Promise(r => setTimeout(r, 700));
 const laatste = berichten.at(-1)?.stand;

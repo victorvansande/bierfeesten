@@ -14,7 +14,7 @@
  * De editie met de naam DEMO_EDITIE is een live voorbeeld met verzonnen bestellingen (demo.js).
  */
 
-import { RESET_MS, STIL_MS, beginstand, bestelling, tussenIn, volgendeTussentijd } from './demo.js';
+import { RESET_MS, STIL_MS, alsWeekend, beginstand, bestelling, tussenIn, volgendeTussentijd } from './demo.js';
 
 const MAX_BATCH = 500;
 const MAX_ML_PER_STUK = 5000;     // 5 L: alles daarboven is bijna zeker een tikfout
@@ -40,8 +40,12 @@ export default {
     const editie = (url.searchParams.get('editie') || env.EDITIE || 'test').slice(0, 20);
     const stub = env.TELLING.get(env.TELLING.idFromName(editie));
     /* Het Durable Object kent zijn eigen naam niet; geef die mee, zodat het weet of het de demo is. */
-    const doorgegeven = new Request(req);
-    doorgegeven.headers.set('x-editie', editie);
+    /* POST: de body eerst volledig inlezen, zodat ook een geweigerde aanvraag (bv. foute token) netjes afgesloten wordt. */
+    const headers = new Headers(req.headers);
+    headers.set('x-editie', editie);
+    const doorgegeven = req.method === 'POST'
+      ? new Request(req.url, { method: 'POST', headers, body: await req.arrayBuffer() })
+      : new Request(req, { headers });
     return stub.fetch(doorgegeven);
   }
 };
@@ -124,6 +128,9 @@ export class Telling {
     const verloop = [];
     for (let e = begin; e <= nu; e += EMMER_MS) verloop.push(this.emmers.get(e) || 0);
     for (const k of this.emmers.keys()) if (k < begin) this.emmers.delete(k);
+    let dagen = Object.entries(this.dagen).filter(([, ml]) => ml !== 0).sort().map(([dag, ml]) => ({ dag, ml }));
+    let vandaag = feestdag(nu);
+    if (this.isDemo()) ({ dagen, vandaag } = alsWeekend(dagen, vandaag));
     return {
       v: 1,
       editie: this.editie || this.env.EDITIE,
@@ -134,8 +141,8 @@ export class Telling {
       tafels: this.tafels,
       recent: this.recent.map(({ id, ...r }) => r),
       verloop: { emmer_ms: EMMER_MS, begin, ml: verloop },
-      dagen: Object.entries(this.dagen).filter(([, ml]) => ml !== 0).sort().map(([dag, ml]) => ({ dag, ml })),
-      vandaag: feestdag(nu),
+      dagen,
+      vandaag,
       bijgewerkt: this.bijgewerkt,
       server_tijd: nu
     };
@@ -177,13 +184,12 @@ export class Telling {
     return !!this.env.DEMO_EDITIE && this.editie === this.env.DEMO_EDITIE;
   }
 
-  /* Bij elke kijker: zorgen dat het voorbeeld loopt. Stond het stil, dan eerst de tussentijd aanvullen. */
+  /* Bij elke kijker: zorgen dat het voorbeeld loopt. Lag het stil (geen kijkers, of een alarm dat
+   * te laat kwam), dan eerst het gat aanvullen aan het gewone tempo. */
   async demoWek() {
     this.laatsteKijker = Date.now();
-    if (await this.ctx.storage.getAlarm() == null) {
-      await this.demoBij(false);
-      await this.ctx.storage.setAlarm(Date.now() + volgendeTussentijd());
-    }
+    await this.demoBij(false);
+    if (await this.ctx.storage.getAlarm() == null) await this.ctx.storage.setAlarm(Date.now() + volgendeTussentijd());
   }
 
   async alarm() {
@@ -195,8 +201,11 @@ export class Telling {
     await this.ctx.storage.setAlarm(Date.now() + volgendeTussentijd());
   }
 
-  /* Het voorbeeld bijwerken: om de 4 uur opnieuw beginnen, anders aanvullen tot nu (en eventueel één nieuwe bestelling). */
-  async demoBij(nieuweBestelling) {
+  /* Het voorbeeld bijwerken:
+   *   - ouder dan RESET_MS: opnieuw beginnen;
+   *   - een alarm dat op tijd komt: precies één nieuwe bestelling;
+   *   - een gat van meer dan 2 minuten: aanvullen aan het gewone tempo (±35 s per bestelling). */
+  async demoBij(vanAlarm) {
     const nu = Date.now();
     const start = await this.ctx.storage.get('demo_start');
     if (!start || nu - start > RESET_MS) {
@@ -208,11 +217,14 @@ export class Telling {
       return;
     }
     const laatste = (await this.ctx.storage.get('demo_laatste')) || nu;
-    const lijst = tussenIn(laatste, nu);
-    if (nieuweBestelling) lijst.push(bestelling(nu));
+    let lijst = [];
+    if (nu - laatste > 2 * 60 * 1000) lijst = tussenIn(laatste, nu);
+    else if (vanAlarm) lijst = [bestelling(nu)];
+    else return;   // kijker tijdens een lopend voorbeeld: niets te doen
     if (lijst.length) this.verwerk(lijst, [], nu);
     await this.ctx.storage.put('demo_laatste', nu);
   }
+
   webSocketClose(ws, code) { try { ws.close(code, 'tot later'); } catch {} }
   webSocketError() {}
 
