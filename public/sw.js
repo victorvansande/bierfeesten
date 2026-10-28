@@ -8,7 +8,7 @@
  *
  * Bij elke wijziging aan deze lijst of dit bestand: VERSIE ophogen, dan ruimt de oude cache zichzelf op.
  */
-const VERSIE = 'bierfeesten-v3';
+const VERSIE = 'bierfeesten-v4';
 const BASIS = [
   './', 'css/app.css', 'js/config.js', 'js/vendor/qrcode-generator-1.4.4.js', 'js/zaal.js', 'js/bron.js', 'js/app.js',
   'img/logo-masker.png', 'img/icoon/favicon.svg', 'img/icoon/icoon-192.png', 'manifest.webmanifest'

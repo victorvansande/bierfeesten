@@ -40,6 +40,20 @@ const browser = await chromium.launch();
 for (const f of FORMATEN) {
   const p = await browser.newPage({ viewport: { width: f.w, height: f.h }, deviceScaleFactor: f.gsm ? 2 : 1, isMobile: !!f.gsm, hasTouch: !!f.gsm });
   const fout = [];
+  /* Verspringen meten (Cumulative Layout Shift), vanaf het moment dat het laadscherm weg is tot het einde van de controle. */
+  await p.addInitScript(() => {
+    window.__cls = 0; window.__verschuivers = new Set();
+    /* Enkel wat de bezoeker ziet: verschuivingen onder het (ondoorzichtige) laadscherm tellen niet.
+     * Het moment waarop het laadscherm verdwijnt, leggen we vast; elke verschuiving wordt vergeleken met haar eigen tijdstip
+     * (de browser meldt ze pas iets later). */
+    window.__ladenWeg = Infinity;
+    new MutationObserver((_, mo) => {
+      const l = document.getElementById('laden');
+      if (l?.classList.contains('weg')) { window.__ladenWeg = performance.now(); mo.disconnect(); }
+    }).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    new PerformanceObserver(l => { for (const e of l.getEntries()) if (!e.hadRecentInput && e.startTime >= window.__ladenWeg) { window.__cls += e.value; e.sources.forEach(b => window.__verschuivers.add(b.node?.id || b.node?.className || b.node?.nodeName)); } })
+      .observe({ type: 'layout-shift', buffered: true });
+  });
   p.on('pageerror', e => fout.push(e.message));
   p.on('console', m => { if (m.type() === 'error') fout.push(m.text()); });
   await p.goto(`${BASIS}/?demo${f.beamer ? '&beamer' : ''}`);
@@ -65,6 +79,28 @@ for (const f of FORMATEN) {
   meld(r.tafels === 71, `${f.naam}: alle 71 tafels getekend (${r.tafels})`);
   meld(r.tellerZichtbaar, `${f.naam}: teller volledig zichtbaar zonder scrollen`);
   meld(r.laadschermWeg, `${f.naam}: laadscherm verdwenen na de eerste stand`);
+
+  /* Uitlijning en vaste breedtes */
+  const u = await p.evaluate(() => {
+    const midden = el => { const b = el.getBoundingClientRect(); return b.left + b.width / 2; };
+    const k = [...document.querySelectorAll('.kerncijfers > div')].map(midden);
+    const d = [...document.querySelectorAll('#dagen li')].map(midden);
+    const dagenUitgelijnd = d.length !== 2 || d.every((x, i) => Math.abs(x - k[i]) <= 2);
+    // Even brede cijfers: hetzelfde getal met smalle en brede cijfers moet even breed zijn
+    const proef = waarde => { const dd = document.createElement('dd'); dd.innerHTML = waarde.replace(/\d/g, c => `<span class="cf">${c}</span>`); document.querySelector('.kerncijfers dd').after(dd); const w = dd.getBoundingClientRect().width; dd.remove(); return w; };
+    const vasteCijfers = Math.abs(proef('1.111') - proef('8.888')) < 0.5;
+    // Niets mag buiten zijn blok lopen
+    const uitstekers = [...document.querySelectorAll('.kerncijfers dd, .kerncijfers dt, .dag-l, .dag-naam, .rl-naam, .rl-liter, .rc-tafel, .rc-wat, .rc-ml, .mb-tekst span, .blok-kop, .teller-label, .teller-eenheid, .zaal-kaart')]
+      .filter(e => { const b = e.getBoundingClientRect(), o = e.parentElement.getBoundingClientRect(); return b.width && (b.left < o.left - 1 || b.right > o.right + 1); })
+      .map(e => e.className || e.tagName);
+    // Teller en "liter bier" mogen elkaar niet raken
+    const t = document.getElementById('teller-getal').getBoundingClientRect(), e = document.querySelector('.teller-eenheid').getBoundingClientRect();
+    return { dagenUitgelijnd, d: d.map(Math.round), k: k.map(Math.round), vasteCijfers, uitstekers, tellerVrij: t.bottom <= e.top + 1 };
+  });
+  meld(u.dagenUitgelijnd, `${f.naam}: dagen recht boven de kerncijfers (dagen ${u.d.join('/')}, kerncijfers ${u.k.join('/')})`);
+  meld(u.vasteCijfers, `${f.naam}: live getallen hebben even brede cijfers`);
+  meld(!u.uitstekers.length, `${f.naam}: niets loopt buiten zijn blok${u.uitstekers.length ? ': ' + [...new Set(u.uitstekers)].join(', ') : ''}`);
+  meld(u.tellerVrij, `${f.naam}: teller en "liter bier" raken elkaar niet`);
   meld(fout.length === 0, `${f.naam}: geen fouten in de console${fout.length ? ': ' + fout.join(' | ') : ''}`);
   if (f.gsm) {
     /* Apple en Google raden ~44 px aan voor aanraakdoelen; een tafel moet minstens 28 px zijn om er betrouwbaar op te tikken. */
@@ -88,6 +124,9 @@ for (const f of FORMATEN) {
     const b = await p.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1);
     meld(b, `${f.naam}: alles past op één scherm`);
   }
+  /* Verspringen: praktisch nul (Google noemt alles onder 0,1 al "goed"; wij willen niets zichtbaars). */
+  const cls = await p.evaluate(() => ({ waarde: window.__cls, door: [...window.__verschuivers] }));
+  meld(cls.waarde < 0.001, `${f.naam}: niets verspringt (layout-shift ${cls.waarde.toFixed(4)}${cls.door.length ? ', door ' + cls.door.join(', ') : ''})`);
   await p.screenshot({ path: `${MAP}/${f.naam}.png`, fullPage: !f.beamer });
   await p.close();
 }
@@ -102,8 +141,8 @@ for (const f of FORMATEN) {
   const online = await p.evaluate(() => document.getElementById('teller-getal').dataset.tekst);
   await ctx.setOffline(true);
   await p.reload(); await p.waitForTimeout(2500);
-  const r = await p.evaluate(() => ({ teller: document.getElementById('teller-getal').dataset.tekst, status: document.getElementById('status-tekst').textContent, tafels: document.querySelectorAll('.tafel').length, band: !document.getElementById('verbinding-band').hidden && document.getElementById('verbinding-band').getBoundingClientRect().top < 120 }));
-  meld(r.tafels === 71 && r.teller && r.teller !== '0,0' && /stand van/.test(r.status) && r.band, `zonder netwerk: pagina opent met bewaarde stand (${r.teller} L, online was ${online} L), status "${r.status}", band bovenaan ${r.band ? 'zichtbaar' : 'NIET zichtbaar'}`);
+  const r = await p.evaluate(() => ({ teller: document.getElementById('teller-getal').dataset.tekst, status: document.getElementById('status-tekst').textContent, tafels: document.querySelectorAll('.tafel').length, band: !document.getElementById('verbinding-band').hidden && Math.abs(document.getElementById('verbinding-band').getBoundingClientRect().bottom - innerHeight) < 2 }));
+  meld(r.tafels === 71 && r.teller && r.teller !== '0,0' && /stand van/.test(r.status) && r.band, `zonder netwerk: pagina opent met bewaarde stand (${r.teller} L, online was ${online} L), status "${r.status}", band onderaan ${r.band ? 'zichtbaar' : 'NIET zichtbaar'}`);
   await p.screenshot({ path: `${MAP}/gsm-offline.png` });
   await ctx.close();
 }

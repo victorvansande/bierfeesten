@@ -56,15 +56,17 @@ button { font: inherit; color: inherit; }
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 
+/* Geen verbinding: een balk onderaan die over de pagina ligt, zodat er niets verspringt als hij verschijnt. */
 .verbinding-band {
-  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 25;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
+  padding-bottom: calc(7px + env(safe-area-inset-bottom, 0px)) !important;
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, .2);
   background: var(--rood); color: #FFF;
   font-size: 13px; line-height: 1.35; font-weight: 700; text-align: center;
   padding-block: 7px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-@media (min-width: 1200px) and (min-aspect-ratio: 4/3) { .verbinding-band { flex: none; } }
 
 /* Laadscherm. Verdwijnt zodra de eerste stand er is; als vangnet ook vanzelf na 6 s (bv. bij een scriptfout). */
 .laden {
@@ -77,6 +79,9 @@ button { font: inherit; color: inherit; }
 .laden.weg { opacity: 0; visibility: hidden; transition: opacity .3s, visibility 0s .3s; }
 @keyframes laden-weg { to { opacity: 0; visibility: hidden; } }
 @keyframes laden-in { from { opacity: 0; scale: .94; } }
+
+/* Cijfers met vaste breedte (zie vast() in app.js): Anton is niet tabulair, de 1 is smaller. */
+.cf { display: inline-block; width: .5em; text-align: center; }
 
 /* Koppen van de blokken: Anton in kapitalen met een inktlijn eronder. */
 .blok-kop {
@@ -112,7 +117,7 @@ button { font: inherit; color: inherit; }
   white-space: nowrap;
 }
 /* Elk cijfer is een strookje van 20 regels (twee keer 0-9) achter een venster van één regel. */
-.teller-getal .c { display: inline-block; height: calc(var(--teller-lh) * 1em); overflow: hidden; }
+.teller-getal .c { display: inline-block; height: calc(var(--teller-lh) * 1em); overflow: hidden; clip-path: inset(0); }   /* clip-path: Safari knipt anders niet af onder een filter */
 .teller-getal .rol {
   display: block;
   white-space: pre;
@@ -127,7 +132,9 @@ button { font: inherit; color: inherit; }
 .kerncijfers dd { margin: 0; font: 400 28px/1 var(--f-kop); font-variant-numeric: tabular-nums; }
 
 /* ---------- 4. Doelen en dagen ---------- */
-.dagen { list-style: none; margin: 0; padding: 0; display: flex; justify-content: center; gap: 28px; }
+/* Zelfde raster als de kerncijfers eronder: elke dag staat recht boven een kerncijfer. */
+.dagen { list-style: none; margin: 0; padding: 0; width: 100%; max-width: 460px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.dagen li:only-child { grid-column: 1 / -1; }
 .dagen li { display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--inkt-zacht); }
 .dag-naam { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
 .dag-nu .dag-naam { color: var(--rood); font-weight: 700; }
@@ -405,7 +412,7 @@ button { font: inherit; color: inherit; }
   .teller-label { font-size: max(15px, 1.6vh); }
   .teller-eenheid { font-size: max(18px, 2.4vh); }
   .dag-l { font-size: max(22px, 2.8vh); }
-  .kerncijfers, .doelen { max-width: none; }
+  .kerncijfers, .doelen, .dagen { max-width: none; }
   .kerncijfers dd { font-size: max(28px, 4vh); }
   .deel-knop { display: none; }
 

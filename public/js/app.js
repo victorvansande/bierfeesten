@@ -35,6 +35,9 @@
     if (ouder) ouder.append(e);
     return e;
   }
+  /* Anton heeft geen even brede cijfers (de 1 is smaller). Getallen die live wijzigen krijgen daarom
+   * elk cijfer in een vak van vaste breedte, zodat ze bij een nieuwe waarde niet verschuiven. */
+  const vast = t => String(t).replace(/\d/g, d => `<span class="cf">${d}</span>`);
   const html = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const uurMin = ts => new Date(ts).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' });
   /* Korte relatieve tijd: "nu", "3 min geleden", of het uur als het langer dan een uur geleden is. */
@@ -238,8 +241,8 @@
     return duur > 0 ? som / 1000 / (duur / 3600000) : 0;
   }
   function toonKerncijfers(s) {
-    $('k-uur').textContent = fmt0.format(literPerUur(s));
-    $('k-best').textContent = fmt0.format(s.bestellingen);
+    $('k-uur').innerHTML = vast(fmt0.format(literPerUur(s)));
+    $('k-best').innerHTML = vast(fmt0.format(s.bestellingen));
   }
 
   /* De server telt per feestdag (06:00 tot 06:00 Belgische tijd): de nacht tot 2u hoort bij de dag ervoor. */
@@ -251,7 +254,7 @@
       const li = document.createElement('li');
       const nu = dag === s.vandaag;
       li.classList.toggle('dag-nu', nu);
-      li.innerHTML = `<span class="dag-naam">${weekdag(dag)}${nu ? ' · vandaag' : ''}</span><span class="dag-l">${liter(ml)} L</span>`;
+      li.innerHTML = `<span class="dag-naam">${weekdag(dag)}${nu ? ' · vandaag' : ''}</span><span class="dag-l">${vast(liter(ml))} L</span>`;
       return li;
     }));
   }
@@ -297,7 +300,7 @@
   }
   function vier(l, soort) {
     const m = $('mijlpaal');
-    $('mp-getal').textContent = fmt0.format(l);
+    $('mp-getal').innerHTML = vast(fmt0.format(l));
     $('mp-tekst').textContent = soort === 'record' ? 'Record van vorig jaar gebroken!' : 'liter bier gedronken';
     m.dataset.soort = soort;
     m.classList.remove('weg');
@@ -311,7 +314,7 @@
     const top = Object.entries(rangVan).sort((a, b) => a[1] - b[1]).slice(0, 5).map(([nr]) => [nr, s.tafels[nr]]);
     const max = top[0]?.[1].ml || 1;
     $('ranglijst').innerHTML = top.length
-      ? top.map(([nr, t], i) => `<li data-nr="${nr}"><span class="rl-rang">${i + 1}</span><span class="rl-naam">Tafel ${nr}<small>${zaalNaam(nr)}</small></span><span class="rl-liter">${liter(t.ml)} L</span><span class="rl-balk" style="--w:${(t.ml / max * 100).toFixed(1)}%"></span></li>`).join('')
+      ? top.map(([nr, t], i) => `<li data-nr="${nr}"><span class="rl-rang">${i + 1}</span><span class="rl-naam">Tafel ${nr}<small>${zaalNaam(nr)}</small></span><span class="rl-liter">${vast(liter(t.ml))} L</span><span class="rl-balk" style="--w:${(t.ml / max * 100).toFixed(1)}%"></span></li>`).join('')
       : '<li class="leeg">Nog geen bestellingen</li>';
   }
 
@@ -392,7 +395,7 @@
     const t = s.tafels[openNr] || { ml: 0, n: 0, laatst: 0 };
     $('td-zaal').textContent = zaalNaam(openNr);
     $('td-titel').textContent = 'Tafel ' + openNr;
-    $('td-liter').innerHTML = `${liter(t.ml)}<small> L</small>`;
+    $('td-liter').innerHTML = `${vast(liter(t.ml))}<small> L</small>`;
     $('td-rang').textContent = rangVan[openNr] ? `${rangVan[openNr]} van ${Object.keys(ZAAL.zaalVan).length}` : 'nog geen';
     $('td-n').textContent = fmt0.format(t.n);
     $('td-deel').textContent = s.totaal_ml ? fmt1.format(t.ml / s.totaal_ml * 100) + ' %' : '0,0 %';
@@ -497,11 +500,21 @@
   /* uitCache: de getoonde stand komt van het toestel. De eerste echte stand daarna telt als "eerste":
    * geen feestmoment voor een tussendoel dat al lang gehaald was, geen knipperende tafels. */
   let uitCache = false;
+  /* Het laadscherm gaat pas weg als ook de lettertypes er zijn (hoogstens 2,5 s extra wachten):
+   * anders springt de pagina zichtbaar wanneer Anton de reserveletter vervangt. */
+  /* Een browser haalt een lettertype pas op als het gebruikt wordt; daarom hier meteen expliciet aanvragen. */
+  const LETTERS = document.fonts
+    ? Promise.all(['400 40px Anton', '400 16px "Courier Prime"', '700 16px "Courier Prime"'].map(f => document.fonts.load(f))).catch(() => {})
+    : Promise.resolve();
+  let ladenBezig = false;
   function verbergLaden() {
     const l = $('laden');
-    if (!l || l.classList.contains('weg')) return;
-    l.classList.add('weg');
-    setTimeout(() => { l.hidden = true; }, 350);
+    if (!l || ladenBezig || l.classList.contains('weg')) return;
+    ladenBezig = true;
+    Promise.race([LETTERS, new Promise(r => setTimeout(r, 2500))]).then(() => {
+      l.classList.add('weg');
+      setTimeout(() => { l.hidden = true; }, 350);
+    });
   }
   function onStand(s, vanToestel = false) {
     verbergLaden();
