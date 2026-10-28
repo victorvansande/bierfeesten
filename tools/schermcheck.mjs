@@ -49,8 +49,8 @@ for (const f of FORMATEN) {
     window.__ladenWeg = Infinity;
     new MutationObserver((_, mo) => {
       const l = document.getElementById('laden');
-      if (l?.classList.contains('weg')) { window.__ladenWeg = performance.now(); mo.disconnect(); }
-    }).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });
+      if (l?.hidden) { window.__ladenWeg = performance.now(); mo.disconnect(); }   // pas helemaal weg na het uitfaden
+    }).observe(document, { subtree: true, attributes: true, attributeFilter: ['hidden'] });
     new PerformanceObserver(l => { for (const e of l.getEntries()) if (!e.hadRecentInput && e.startTime >= window.__ladenWeg) { window.__cls += e.value; e.sources.forEach(b => window.__verschuivers.add(b.node?.id || b.node?.className || b.node?.nodeName)); } })
       .observe({ type: 'layout-shift', buffered: true });
   });
@@ -130,6 +130,29 @@ for (const f of FORMATEN) {
   await p.screenshot({ path: `${MAP}/${f.naam}.png`, fullPage: !f.beamer });
   await p.close();
 }
+/* Traag netwerk (400 ms vertraging, ±1,6 Mbit/s, zoals slecht 3G in een volle zaal): ook dan mag er
+ * na het laadscherm niets verspringen, en moet het laadscherm binnen 6 s weg zijn. */
+for (const [w, h, naam] of [[375, 812, 'gsm'], [1310, 1000, 'laptop']]) {
+  const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+  const p = await ctx.newPage();
+  const cdp = await ctx.newCDPSession(p);
+  await cdp.send('Network.enable');
+  await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 400, downloadThroughput: 200000, uploadThroughput: 100000 });
+  await p.addInitScript(() => {
+    window.__ladenWeg = Infinity; window.__cls = 0;
+    new MutationObserver((_, mo) => { if (document.getElementById('laden')?.hidden) { window.__ladenWeg = performance.now(); mo.disconnect(); } })
+      .observe(document, { subtree: true, attributes: true, attributeFilter: ['hidden'] });
+    new PerformanceObserver(l => { for (const e of l.getEntries()) if (e.startTime >= window.__ladenWeg) window.__cls += e.value; }).observe({ type: 'layout-shift', buffered: true });
+  });
+  const t0 = Date.now();
+  await p.goto(`${BASIS}/?demo`, { timeout: 60000 });
+  const weg = await p.waitForFunction(() => document.getElementById('laden').hidden, null, { timeout: 15000 }).then(() => (Date.now() - t0) / 1000).catch(() => Infinity);
+  await p.waitForTimeout(4000);
+  const cls = await p.evaluate(() => window.__cls);
+  meld(weg < 6 && cls < 0.001, `traag netwerk, ${naam}: laadscherm weg na ${weg.toFixed(1)} s, zichtbaar verspringen ${cls.toFixed(4)}`);
+  await ctx.close();
+}
+
 /* Zonder netwerk: de site opent toch, met de laatst gekende stand. (Echte live-pagina, geen ?demo.) */
 {
   const ctx = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2, isMobile: true });

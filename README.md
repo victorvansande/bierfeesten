@@ -48,6 +48,7 @@ kassa ──POST /api/kassa (token)──▶ Cloudflare Worker ──▶ Durable
 | `tools/schermcheck.mjs` | Schermcontrole op 360, 375, 430 px, tablet, laptop en beamer |
 | `tools/simuleer.mjs` | Verzonnen kassabestellingen naar een testeditie |
 | `tools/maak-iconen.py` | Maakt favicon en app-iconen uit de ster van het logo (`tools/bron/`) naar `public/img/icoon/` |
+| `public/fonts/` | Anton en Courier Prime (SIL Open Font License), zelf meegeleverd: sneller, offline bruikbaar, geen gegevens naar Google |
 | `public/sw.js` | Service worker: de site opent ook zonder netwerk (bij een wijziging van de bestandslijst: `VERSIE` ophogen) |
 | `public/img/delen.png`, `public/img/laadscherm/` | Voorbeeld bij een gedeelde link en iOS-laadschermen, met het logo (`tools/maak-iconen.py`) |
 | `public/manifest.webmanifest` | Naam en iconen voor "Zet op beginscherm" (Android en iOS) |

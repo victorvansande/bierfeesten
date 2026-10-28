@@ -2,16 +2,16 @@
  *
  *   - Pagina, opmaak, scripts en beelden: eerst het netwerk, zodat na een nieuwe versie alles
  *     meteen bij elkaar past; geen antwoord binnen 3 s (of geen netwerk), dan de bewaarde versie.
- *   - Lettertypes van Google: eenmaal opgehaald, daarna uit de cache.
  *   - De telling (/api/...) gaat nooit via de cache: die is altijd live. De laatst gekende
  *     stand bewaart de pagina zelf (zie app.js), zodat ze zonder netwerk iets kan tonen.
  *
  * Bij elke wijziging aan deze lijst of dit bestand: VERSIE ophogen, dan ruimt de oude cache zichzelf op.
  */
-const VERSIE = 'bierfeesten-v4';
+const VERSIE = 'bierfeesten-v5';
 const BASIS = [
   './', 'css/app.css', 'js/config.js', 'js/vendor/qrcode-generator-1.4.4.js', 'js/zaal.js', 'js/bron.js', 'js/app.js',
-  'img/logo-masker.png', 'img/icoon/favicon.svg', 'img/icoon/icoon-192.png', 'manifest.webmanifest'
+  'img/logo-masker.png', 'img/icoon/favicon.svg', 'img/icoon/icoon-192.png', 'manifest.webmanifest',
+  'fonts/anton-400.woff2', 'fonts/courier-prime-400.woff2', 'fonts/courier-prime-700.woff2'
 ];
 
 self.addEventListener('install', e => {
@@ -34,8 +34,6 @@ self.addEventListener('fetch', e => {
     e.respondWith(eersteNetwerk(req, './'));
   } else if (url.origin === location.origin) {
     e.respondWith(eersteNetwerk(req, req));
-  } else if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
-    e.respondWith(eersteCache(req));
   }
 });
 
@@ -48,13 +46,4 @@ async function eersteNetwerk(req, sleutel) {
   } catch {
     return (await cache.match(sleutel, { ignoreSearch: true })) || Response.error();
   }
-}
-
-async function eersteCache(req) {
-  const cache = await caches.open(VERSIE);
-  const bewaard = await cache.match(req);
-  if (bewaard) return bewaard;
-  const r = await fetch(req);
-  if (r.ok || r.type === 'opaque') cache.put(req, r.clone());
-  return r;
 }

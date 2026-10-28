@@ -10,6 +10,11 @@
  *   4. Doelen en dagen 8. Voet
  */
 
+/* Lettertypes (SIL Open Font License), zelf meegeleverd: Anton en Courier Prime, Latijnse tekenset. */
+@font-face { font-family: 'Anton'; font-weight: 400; font-display: swap; src: url(../fonts/anton-400.woff2) format('woff2'); }
+@font-face { font-family: 'Courier Prime'; font-weight: 400; font-display: swap; src: url(../fonts/courier-prime-400.woff2) format('woff2'); }
+@font-face { font-family: 'Courier Prime'; font-weight: 700; font-display: swap; src: url(../fonts/courier-prime-700.woff2) format('woff2'); }
+
 /* ---------- 1. Tokens ---------- */
 :root {
   --geel: #FDDF59;            /* achtergrond, kleur van het logo */
@@ -111,12 +116,14 @@ button { font: inherit; color: inherit; }
 .teller-eenheid { font-size: 18px; }
 .teller-getal {
   display: flex;
+  height: calc(var(--teller-lh) * 1em);   /* vaste hoogte: een ander lettertype of een ander getal verandert die nooit */
   align-items: flex-end;
   font: 400 clamp(64px, 21vw, 132px)/var(--teller-lh) var(--f-kop);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 /* Elk cijfer is een strookje van 20 regels (twee keer 0-9) achter een venster van één regel. */
+.teller-getal .sep { line-height: var(--teller-lh); }
 .teller-getal .c { display: inline-block; height: calc(var(--teller-lh) * 1em); overflow: hidden; clip-path: inset(0); }   /* clip-path: Safari knipt anders niet af onder een filter */
 .teller-getal .rol {
   display: block;
