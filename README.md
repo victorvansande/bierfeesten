@@ -32,7 +32,7 @@ kassa ──POST /api/kassa (token)──▶ Cloudflare Worker ──▶ Durable
 - **Bij slecht wifi**: de pagina en de laatst gekende stand blijven op het toestel bewaard. Zonder netwerk opent de site meteen, met onderaan een band "Geen verbinding" en het uur van de getoonde stand. De telling zelf gaat nooit via de cache.
 - **Gedeelde link** toont het logo met de naam en een korte zin (Open Graph). Het adres staat vast in `index.html`: bij een eigen domein daar aanpassen.
 - **Demo** met verzonnen, realistische cijfers: `?demo`. Nooit op de beamer tijdens het feest.
-- **Live voorbeeld op de server** (tijdelijk aan op de hoofdpagina): de editie `demo` verzint zelf bestellingen via een alarm van het Durable Object, zodat iedereen dezelfde cijfers live ziet oplopen. Om de 4 uur begint het opnieuw; zonder kijkers stopt het na een halfuur. Uitzetten: `editie` weghalen uit `public/js/config.js`. Code: `worker/demo.js`.
+- **Live voorbeeld op de server** (tijdelijk aan op de hoofdpagina): de editie `demo` verzint zelf bestellingen via een alarm van het Durable Object, zodat iedereen dezelfde cijfers live ziet oplopen. Om de 4 uur begint het opnieuw; zonder kijkers stopt het na een halfuur. **Nu stilgelegd** (`DEMO_STIL = "1"` in `wrangler.toml`): er komt niets meer bij en de laatste stand blijft staan, met de tijdstippen verschoven naar nu, zodat het verloop en "laatste bestelling" er gewoon uitzien. Weer laten lopen: `DEMO_STIL` weghalen. Uitzetten: `editie` weghalen uit `public/js/config.js`. Code: `worker/demo.js`.
 
 ## Bestanden
 

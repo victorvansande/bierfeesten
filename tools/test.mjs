@@ -92,8 +92,12 @@ ok(typeof s.vandaag === 'string' && /^\d{4}-\d\d-\d\d$/.test(s.vandaag), 'stand 
 /* Live voorbeeld: enkel in de demo-editie, nooit in een andere. */
 const demo = await fetch(`${BASIS}/api/stand?editie=demo`).then(r => r.json());
 ok(demo.uitverkocht?.[0]?.naam === 'Geuze', 'demo toont een uitverkocht bier');
-ok(demo.demo === true && demo.totaal_ml > 600000 && demo.recent.length > 0, `demo-editie loopt vanzelf (${(demo.totaal_ml / 1000).toFixed(1)} L, ${demo.dagen.length} dagen)`);
+ok(demo.demo === true && demo.totaal_ml > 600000 && demo.recent.length > 0, `demo-editie heeft een stand (${(demo.totaal_ml / 1000).toFixed(1)} L, ${demo.dagen.length} dagen)`);
 ok(!s.demo && !(await stand()).demo, 'andere edities zijn nooit demo');
+await new Promise(r => setTimeout(r, 1500));
+const demo2 = await fetch(`${BASIS}/api/stand?editie=demo`).then(r => r.json());
+ok(demo.demo_stil !== true || (demo2.totaal_ml === demo.totaal_ml && demo2.bestellingen === demo.bestellingen && Date.now() - demo2.recent[0].ts < 10 * 60000),
+  demo.demo_stil ? 'stilgelegd voorbeeld: stand blijft staan, tijdstippen lijken van nu' : 'voorbeeld loopt (niet stilgelegd)');
 const wd = d => new Date(d + 'T12:00:00Z').getUTCDay();
 ok(demo.dagen.length === 2 && wd(demo.dagen[0].dag) === 6 && wd(demo.dagen[1].dag) === 0 && demo.vandaag === demo.dagen[1].dag, 'demo speelt op zaterdag en zondag (vandaag = zondag)');
 

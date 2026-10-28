@@ -18,6 +18,8 @@ TAFELS = "1-71"
 # Live voorbeeld met verzonnen bestellingen, enkel in deze editie (bekijken met ?editie=demo).
 # Raakt de echte telling nooit. Leegmaken of weglaten = geen voorbeeld meer.
 DEMO_EDITIE = "demo"
+# "1" = voorbeeld stilgelegd: geen nieuwe verzonnen bestellingen meer, de laatste stand blijft staan.
+DEMO_STIL = "1"
 # Optioneel: productcode -> ml per stuk, voor als de kassa geen volume meestuurt.
 PRODUCTEN = '{"PILS25": 250, "PILS33": 330, "SPEC33": 330, "PINT50": 500, "KAN100": 1000}'
 # KASSA_TOKEN is een geheim: `npx wrangler secret put KASSA_TOKEN` (lokaal: .dev.vars)

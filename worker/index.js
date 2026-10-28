@@ -77,6 +77,7 @@ export class Telling {
       this.editie = await ctx.storage.get('editie');
       this.uitverkocht = (await ctx.storage.get('uitverkocht')) || [];
       this.demoStart = await ctx.storage.get('demo_start');
+      this.demoLaatste = await ctx.storage.get('demo_laatste');
       this.herbereken();
     });
   }
@@ -104,7 +105,7 @@ export class Telling {
       this.dagen[d] = (this.dagen[d] || 0) + r.ml;
     }
     this.emmers = new Map();
-    const vanaf = Date.now() - EMMERS * EMMER_MS;
+    const vanaf = (this.bevrorenOp() ?? Date.now()) - EMMERS * EMMER_MS;
     for (const r of this.sql.exec('SELECT (ts / ?) AS e, SUM(ml) AS ml FROM bestelling WHERE storno = 0 AND ts >= ? GROUP BY e', EMMER_MS, vanaf)) {
       this.emmers.set(Math.floor(r.e) * EMMER_MS, r.ml);
     }
@@ -142,18 +143,20 @@ export class Telling {
   }
 
   stand() {
-    const nu = Date.now();
+    /* Stilgelegd voorbeeld: de stand van het moment waarop het stilviel, verschoven naar nu (zie onderaan). */
+    const bevroren = this.bevrorenOp();
+    const nu = bevroren ?? Date.now();
     const begin = Math.floor(nu / EMMER_MS) * EMMER_MS - (EMMERS - 1) * EMMER_MS;
     const verloop = [];
     for (let e = begin; e <= nu; e += EMMER_MS) verloop.push(this.emmers.get(e) || 0);
     for (const k of this.emmers.keys()) if (k < begin) this.emmers.delete(k);
     let dagen = Object.entries(this.dagen).filter(([, ml]) => ml !== 0).sort().map(([dag, ml]) => ({ dag, ml }));
     let vandaag = feestdag(nu);
-    if (this.isDemo()) ({ dagen, vandaag } = alsWeekend(dagen, vandaag));
-    return {
+    if (this.isDemo()) ({ dagen, vandaag } = alsWeekend(dagen, bevroren ? feestdag(Date.now()) : vandaag));
+    const s = {
       v: 1,
       editie: this.editie || this.env.EDITIE,
-      ...(this.isDemo() ? { demo: true, demo_reset_ms: RESET_MS } : {}),
+      ...(this.isDemo() ? (this.isStil() ? { demo: true, demo_stil: true } : { demo: true, demo_reset_ms: RESET_MS }) : {}),
       totaal_ml: this.totaal,
       zonder_tafel_ml: this.zonderTafel,
       bestellingen: this.aantal,
@@ -168,6 +171,17 @@ export class Telling {
       bijgewerkt: this.bijgewerkt,
       server_tijd: nu
     };
+    if (bevroren == null) return s;
+    /* Alle tijdstippen evenveel opschuiven (in hele emmers, zodat het verloop op de klok blijft passen):
+     * de pagina toont dan een avond die net bezig is, maar er komt niets meer bij. */
+    const d = Math.floor((Date.now() - bevroren) / EMMER_MS) * EMMER_MS;
+    s.tafels = Object.fromEntries(Object.entries(s.tafels).map(([nr, t]) => [nr, { ...t, laatst: t.laatst + d }]));
+    s.recent = s.recent.map(r => ({ ...r, ts: r.ts + d }));
+    s.uitverkocht = s.uitverkocht.map(b => ({ ...b, sinds: b.sinds + d }));
+    s.verloop.begin += d;
+    s.bijgewerkt += d;
+    s.server_tijd = Date.now();
+    return s;
   }
 
   async fetch(req) {
@@ -205,17 +219,29 @@ export class Telling {
   isDemo() {
     return !!this.env.DEMO_EDITIE && this.editie === this.env.DEMO_EDITIE;
   }
+  /* DEMO_STIL = "1": het voorbeeld verzint niets meer en begint niet opnieuw; de laatste stand blijft staan. */
+  isStil() {
+    return this.isDemo() && this.env.DEMO_STIL === '1';
+  }
+  bevrorenOp() {
+    return this.isStil() && this.demoLaatste ? this.demoLaatste : null;
+  }
 
   /* Bij elke kijker: zorgen dat het voorbeeld loopt. Lag het stil (geen kijkers, of een alarm dat
    * te laat kwam), dan eerst het gat aanvullen aan het gewone tempo. */
   async demoWek() {
     this.laatsteKijker = Date.now();
+    if (this.isStil()) {
+      if (!this.demoStart) await this.demoBij(false);   // nog nooit gevuld: één keer een stand maken
+      if (await this.ctx.storage.getAlarm() != null) await this.ctx.storage.deleteAlarm();
+      return;
+    }
     await this.demoBij(false);
     if (await this.ctx.storage.getAlarm() == null) await this.ctx.storage.setAlarm(Date.now() + volgendeTussentijd());
   }
 
   async alarm() {
-    if (!this.isDemo()) return;
+    if (!this.isDemo() || this.isStil()) return;
     const kijkers = this.ctx.getWebSockets().length;
     /* Niemand meer aan het kijken: stoppen. De volgende kijker wekt het voorbeeld weer. */
     if (!kijkers && Date.now() - (this.laatsteKijker || 0) > STIL_MS) return;
@@ -235,7 +261,7 @@ export class Telling {
       this.herbereken();
       this.verwerk(beginstand(nu), [], nu);
       await this.ctx.storage.put({ demo_start: nu, demo_laatste: nu, demo_versie: DEMO_VERSIE });
-      this.demoStart = nu;
+      this.demoStart = this.demoLaatste = nu;
       this.planUitzending();
       return;
     }
@@ -246,6 +272,7 @@ export class Telling {
     else return;   // kijker tijdens een lopend voorbeeld: niets te doen
     if (lijst.length) this.verwerk(lijst, [], nu);
     await this.ctx.storage.put('demo_laatste', nu);
+    this.demoLaatste = nu;
   }
 
   webSocketClose(ws, code) { try { ws.close(code, 'tot later'); } catch {} }

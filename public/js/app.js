@@ -563,7 +563,9 @@
     const band = $('demo-band');
     if (!s.demo || cfg.bron === 'demo') return;
     const uren = Math.round((s.demo_reset_ms || 0) / 3600000);
-    band.firstElementChild.innerHTML = `<b>Live voorbeeld</b> met verzonnen bestellingen: zo ziet de teller eruit tijdens de Bierfeesten.${uren ? ` Begint om de ${uren} uur opnieuw.` : ''}`;
+    band.firstElementChild.innerHTML = s.demo_stil
+      ? '<b>Voorbeeld</b> met verzonnen cijfers: zo ziet de teller eruit tijdens de Bierfeesten.'
+      : `<b>Live voorbeeld</b> met verzonnen bestellingen: zo ziet de teller eruit tijdens de Bierfeesten.${uren ? ` Begint om de ${uren} uur opnieuw.` : ''}`;
     band.hidden = false;
   }
 
