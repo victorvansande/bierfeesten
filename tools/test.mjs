@@ -55,6 +55,21 @@ ok(s.bieren[0].p === 'Tripel' && tripel.ml === 1650 && tripel.n === 5 && fles?.m
 ok(s.recent.find(x => x.p === 'Tripel' && x.t === '3')?.a === 4, 'laatste bestellingen geven het aantal apart mee');
 await post({ storno: ['p1', 'p2'] });
 
+/* Uitverkochte bieren: volledige lijst, losse wijzigingen, en foute invoer verandert niets. */
+r = await post({ uitverkocht: [12, '7', { nr: 41, naam: 'Geuze' }, 'Winterbier'] });
+s = await stand();
+ok(r.status === 200 && JSON.stringify(s.uitverkocht.map(b => [b.nr, b.naam])) === JSON.stringify([['7', null], ['12', null], ['41', 'Geuze'], [null, 'Winterbier']]),
+  'uitverkocht: volledige lijst, gesorteerd op nummer (nummers, namen en objecten)');
+const sinds41 = s.uitverkocht.find(b => b.nr === '41').sinds;
+r = await post({ voorraad: [{ nr: 12, uitverkocht: false }, { nr: 41, uitverkocht: true }, { nr: 5, naam: 'Kriek', uitverkocht: true }] });
+s = await stand();
+ok(r.status === 200 && s.uitverkocht.map(b => b.nr).join() === '5,7,41,' && s.uitverkocht.find(b => b.nr === '41').sinds === sinds41,
+  'uitverkocht: losse wijzigingen, tijdstip blijft bij een bier dat al op was');
+r = await post({ voorraad: [{ nr: 7, uitverkocht: false }, { nr: 8 }] });
+ok(r.status === 400 && (await stand()).uitverkocht.length === 4, 'uitverkocht: foute regel geweigerd, lijst onveranderd');
+r = await post({ uitverkocht: [] });
+ok((await stand()).uitverkocht.length === 0, 'uitverkocht: lege lijst = alles weer te bestellen');
+
 r = await post({ stand: { tafels: { 12: 2.5, 40: 1.2 } } });
 s = await stand();
 ok(s.tafels['12'].ml === 2500 && s.tafels['40'].ml === 1200 && s.tafels['12'].n === 1, 'absolute stand per tafel zet correcties zonder bestellingen te verdubbelen');
@@ -76,6 +91,7 @@ ok(typeof s.vandaag === 'string' && /^\d{4}-\d\d-\d\d$/.test(s.vandaag), 'stand 
 
 /* Live voorbeeld: enkel in de demo-editie, nooit in een andere. */
 const demo = await fetch(`${BASIS}/api/stand?editie=demo`).then(r => r.json());
+ok(demo.uitverkocht?.[0]?.naam === 'Geuze', 'demo toont een uitverkocht bier');
 ok(demo.demo === true && demo.totaal_ml > 600000 && demo.recent.length > 0, `demo-editie loopt vanzelf (${(demo.totaal_ml / 1000).toFixed(1)} L, ${demo.dagen.length} dagen)`);
 ok(!s.demo && !(await stand()).demo, 'andere edities zijn nooit demo');
 const wd = d => new Date(d + 'T12:00:00Z').getUTCDay();

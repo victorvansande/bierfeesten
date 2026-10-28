@@ -160,6 +160,8 @@
       const recent = echt.slice(-2);
       this.stand.dagen = recent.length === 2 ? [{ dag: zaterdag, ml: recent[0].ml }, { dag: zondag, ml: recent[1].ml }] : recent.map(x => ({ dag: zondag, ml: x.ml }));
       this.stand.vandaag = zondag;
+      /* Net als op de server: soorten die de demo zelf niet bestelt. */
+      this.stand.uitverkocht = [{ nr: '41', naam: 'Geuze', sinds: nu - 5 * 3600000 }, { nr: '87', naam: 'Winterbier', sinds: nu - 40 * 60000 }];
       this.stand.bieren = Object.entries(this.bieren).sort((x, y) => y[1].ml - x[1].ml).slice(0, 5).map(([p, b]) => ({ p, ...b }));
       this.stand.bijgewerkt = this.stand.server_tijd = nu;
       this.onStand(JSON.parse(JSON.stringify(this.stand)));

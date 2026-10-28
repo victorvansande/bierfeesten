@@ -90,7 +90,7 @@ for (const f of FORMATEN) {
     const proef = waarde => { const dd = document.createElement('dd'); dd.innerHTML = waarde.replace(/\d/g, c => `<span class="cf">${c}</span>`); document.querySelector('.kerncijfers dd').after(dd); const w = dd.getBoundingClientRect().width; dd.remove(); return w; };
     const vasteCijfers = Math.abs(proef('1.111') - proef('8.888')) < 0.5;
     // Niets mag buiten zijn blok lopen
-    const uitstekers = [...document.querySelectorAll('.kerncijfers dd, .kerncijfers dt, .dag-l, .dag-naam, .rl-naam, .rl-liter, .rc-tafel, .rc-wat, .rc-ml, .mb-tekst span, .blok-kop, .teller-label, .teller-eenheid, .zaal-kaart')]
+    const uitstekers = [...document.querySelectorAll('.kerncijfers dd, .kerncijfers dt, .dag-l, .dag-naam, .rl-naam, .rl-liter, .rc-tafel, .rc-wat, .rc-ml, .uv-nr, .uv-naam, .mb-tekst span, .blok-kop, .teller-label, .teller-eenheid, .zaal-kaart')]
       .filter(e => { const b = e.getBoundingClientRect(), o = e.parentElement.getBoundingClientRect(); return b.width && (b.left < o.left - 1 || b.right > o.right + 1); })
       .map(e => e.className || e.tagName);
     // Teller en "liter bier" mogen elkaar niet raken

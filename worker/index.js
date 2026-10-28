@@ -14,13 +14,14 @@
  * De editie met de naam DEMO_EDITIE is een live voorbeeld met verzonnen bestellingen (demo.js).
  */
 
-import { DEMO_VERSIE, RESET_MS, STIL_MS, alsWeekend, beginstand, bestelling, tussenIn, volgendeTussentijd } from './demo.js';
+import { DEMO_VERSIE, RESET_MS, STIL_MS, alsWeekend, demoUitverkocht, beginstand, bestelling, tussenIn, volgendeTussentijd } from './demo.js';
 
 const MAX_BATCH = 500;
 const MAX_ML_PER_STUK = 5000;     // 5 L: alles daarboven is bijna zeker een tikfout
 const MAX_AANTAL = 200;
 const RECENT = 12;                 // laatste bestellingen in de stand
 const BIEREN = 5;                  // populairste bieren in de stand
+const MAX_UITVERKOCHT = 300;       // ruim boven de ±110 bieren op de lijst
 const EMMER_MS = 5 * 60 * 1000;    // emmers van 5 minuten voor het verloop
 const EMMERS = 48;                 // 4 uur verloop
 const UITZEND_MS = 300;            // hoogstens ~3 uitzendingen per seconde
@@ -74,6 +75,8 @@ export class Telling {
       }
       this.sql.exec('CREATE INDEX IF NOT EXISTS bestelling_ts ON bestelling(ts)');
       this.editie = await ctx.storage.get('editie');
+      this.uitverkocht = (await ctx.storage.get('uitverkocht')) || [];
+      this.demoStart = await ctx.storage.get('demo_start');
       this.herbereken();
     });
   }
@@ -156,6 +159,7 @@ export class Telling {
       bestellingen: this.aantal,
       tafels: this.tafels,
       recent: this.recent.map(({ id, ...r }) => r),
+      uitverkocht: this.isDemo() ? demoUitverkocht(this.demoStart, nu) : this.uitverkocht,
       bieren: [...this.bieren].filter(([, b]) => b.ml > 0).sort((x, y) => y[1].ml - x[1].ml).slice(0, BIEREN)
         .map(([p, b]) => ({ p, ml: b.ml, n: b.n })),
       verloop: { emmer_ms: EMMER_MS, begin, ml: verloop },
@@ -231,6 +235,7 @@ export class Telling {
       this.herbereken();
       this.verwerk(beginstand(nu), [], nu);
       await this.ctx.storage.put({ demo_start: nu, demo_laatste: nu, demo_versie: DEMO_VERSIE });
+      this.demoStart = nu;
       this.planUitzending();
       return;
     }
@@ -273,7 +278,20 @@ export class Telling {
 
     if (lijst.length + storno.length > MAX_BATCH) return json({ fout: `Maximaal ${MAX_BATCH} regels per oproep.` }, {}, 413);
 
+    /* Uitverkochte bieren: eerst volledig nakijken, pas daarna iets bewaren of boeken. */
+    let voorraad = null;
+    if (body.uitverkocht !== undefined || body.voorraad !== undefined) {
+      voorraad = this.nieuweUitverkocht(body, nu);
+      if (voorraad.fout) return json({ fout: voorraad.fout }, {}, 400);
+    }
+
     const resultaat = this.verwerk(lijst, storno, nu);
+    if (voorraad) {
+      this.uitverkocht = voorraad.lijst;
+      await this.ctx.storage.put('uitverkocht', this.uitverkocht);
+      resultaat.uitverkocht = this.uitverkocht.length;
+      this.planUitzending();
+    }
     return json(resultaat, {}, resultaat.geweigerd.length && !resultaat.aanvaard && !resultaat.dubbel ? 422 : 200);
   }
 
@@ -319,6 +337,42 @@ export class Telling {
     }
     resultaat.totaal_ml = this.totaal;
     return resultaat;
+  }
+
+  /* Uitverkochte bieren, in twee vormen (zie KOPPELING.md):
+   *   - "uitverkocht": de volledige lijst van wat nu uitverkocht is (vervangt de vorige lijst);
+   *   - "voorraad": losse wijzigingen, elk met "uitverkocht": true of false.
+   * Een bier is een nummer, een naam, of een object met "nr" en/of "naam".
+   * Bij een bier dat al op de lijst stond, blijft het tijdstip "sinds" behouden. */
+  nieuweUitverkocht(body, nu) {
+    const sleutel = b => (b.nr != null ? 'nr:' + b.nr : 'naam:' + b.naam.toLowerCase());
+    const huidig = new Map(this.uitverkocht.map(b => [sleutel(b), b]));
+    const zet = (doel, b) => {
+      const k = sleutel(b), oud = huidig.get(k) || doel.get(k);
+      doel.set(k, { nr: b.nr, naam: b.naam ?? oud?.naam ?? null, sinds: oud?.sinds ?? nu });
+    };
+    let nieuw = new Map(huidig);
+    if (body.uitverkocht !== undefined) {
+      if (!Array.isArray(body.uitverkocht)) return { fout: '"uitverkocht" moet een lijst zijn (leeg = niets uitverkocht).' };
+      nieuw = new Map();
+      for (const x of body.uitverkocht) {
+        const b = leesBier(x);
+        if (b.fout) return b;
+        zet(nieuw, b);
+      }
+    }
+    for (const x of [].concat(body.voorraad ?? [])) {
+      const b = leesBier(x);
+      if (b.fout) return b;
+      const op = x.uitverkocht ?? x.sold_out;
+      if (typeof op !== 'boolean') return { fout: 'Elke regel in "voorraad" heeft "uitverkocht": true of false nodig.' };
+      if (op) zet(nieuw, b); else nieuw.delete(sleutel(b));
+    }
+    if (nieuw.size > MAX_UITVERKOCHT) return { fout: `Maximaal ${MAX_UITVERKOCHT} uitverkochte bieren.` };
+    /* Op nummer (12 na 7), bieren zonder nummer achteraan op naam. */
+    const vgl = (x, y) => (x ?? '').localeCompare(y ?? '', 'nl', { numeric: true, sensitivity: 'base' });
+    const lijst = [...nieuw.values()].sort((a, b) => (a.nr == null) - (b.nr == null) || vgl(a.nr, b.nr) || vgl(a.naam, b.naam));
+    return { lijst };
   }
 
   /* Een absolute stand omzetten naar correctieregels, zodat er maar één
@@ -390,6 +444,19 @@ function normaliseer(r, producten, nu) {
     ts,
     correctie: !!r.correctie
   };
+}
+
+/* Eén bier voor de lijst met uitverkochte bieren: 12, "12", "Tripel" of { nr, naam }. */
+function leesBier(x) {
+  let nr = null, naam = null;
+  if (typeof x === 'number') nr = x;
+  else if (typeof x === 'string') (/^\s*\d+[a-z]?\s*$/i.test(x) ? (nr = x) : (naam = x));
+  else if (x && typeof x === 'object') { nr = x.nr ?? x.nummer ?? x.number ?? null; naam = x.naam ?? x.name ?? x.product ?? null; }
+  nr = nr == null || nr === '' ? null : String(nr).trim();
+  naam = naam == null || String(naam).trim() === '' ? null : String(naam).trim();
+  if (nr == null && naam == null) return { fout: 'Een uitverkocht bier heeft een "nr" of een "naam" nodig.' };
+  if ((nr && nr.length > 10) || (naam && naam.length > 60)) return { fout: 'Biernummer (max. 10 tekens) of naam (max. 60 tekens) is te lang.' };
+  return { nr, naam };
 }
 
 /* "1-71" of "1-53,54-71,80" naar een verzameling tafelnummers. Leeg = alles toegelaten. */

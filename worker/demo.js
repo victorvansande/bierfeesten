@@ -87,6 +87,14 @@ export function volgendeTussentijd() {
 
 export { STIL_MS };
 
+/* Uitverkocht in het voorbeeld: één bier van bij de start, een tweede na twee uur.
+ * Soorten die de demo zelf niet bestelt, zodat het klopt met de rest van de pagina. */
+export function demoUitverkocht(start, nu) {
+  const lijst = [{ nr: '41', naam: 'Geuze', sinds: (start || nu) - 3 * 3600 * 1000 }];
+  if (start && nu - start > 2 * 3600 * 1000) lijst.push({ nr: '87', naam: 'Winterbier', sinds: start + 2 * 3600 * 1000 });
+  return lijst;
+}
+
 /* Het voorbeeld speelt altijd op een weekend: het echte feest valt op zaterdag en zondag.
  * De twee recentste feestdagen krijgen de data van de laatste zaterdag en zondag
  * (vandaag = zondag), zodat de pagina "Zaterdag" en "Zondag · vandaag" toont. */

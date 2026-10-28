@@ -87,6 +87,8 @@ button { font: inherit; color: inherit; }
 
 /* Cijfers met vaste breedte (zie vast() in app.js): Anton is niet tabulair, de 1 is smaller. */
 .cf { display: inline-block; width: .5em; text-align: center; }
+/* Enkel voor schermlezers. */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Koppen van de blokken: Anton in kapitalen met een inktlijn eronder. */
 .blok-kop {
@@ -236,7 +238,14 @@ button { font: inherit; color: inherit; }
 .rc-tijd { grid-row: 2; grid-column: 2; text-align: right; font-size: 12px; color: var(--inkt-zacht); }
 #recent li.nieuw { animation: nieuw 1.6s ease-out; }
 @keyframes nieuw { from { background: color-mix(in srgb, var(--rood) 30%, transparent); } to { background: transparent; } }
-#ranglijst li.leeg, #bieren li.leeg, #recent li.leeg { display: block; padding-block: 8px; font-style: italic; color: var(--inkt-zacht); cursor: default; }   /* volle breedte, niet in het raster van de lijst */
+/* Uitverkocht: biernummer in een inktblokje, naam doorgestreept zoals op een krijtbord. */
+#blok-uitverkocht { min-width: 0; }
+#uitverkocht { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 8px 0 4px; list-style: none; }
+#uitverkocht li { display: inline-flex; align-items: center; min-width: 0; max-width: 100%; border: 2px solid var(--inkt); background: var(--kaart); font-size: 14px; font-weight: 700; }
+.uv-nr { flex: none; align-self: stretch; display: flex; align-items: center; padding: 3px 7px; background: var(--inkt); color: var(--geel); font-variant-numeric: tabular-nums; }
+.uv-naam { min-width: 0; padding: 3px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: line-through 2px var(--rood); }
+#uitverkocht li.leeg { border: 0; background: none; padding: 0; }
+#ranglijst li.leeg, #bieren li.leeg, #uitverkocht li.leeg, #recent li.leeg { display: block; padding-block: 8px; font-style: italic; color: var(--inkt-zacht); cursor: default; }   /* volle breedte, niet in het raster van de lijst */
 
 /* ---------- 7. Verloop ---------- */
 .verloop { width: 100%; max-width: 460px; margin: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -354,12 +363,13 @@ button { font: inherit; color: inherit; }
 }
 .kolom { display: contents; }
 .midden { order: 1; }
-#blok-rang { order: 2; }
-#kaart { order: 3; }
-#blok-recent { order: 4; }
-#blok-bieren { order: 5; }
-.verloop-blok { order: 6; display: flex; justify-content: center; }
-.voet { order: 7; }
+#blok-uitverkocht { order: 2; }   /* hoog op gsm: wie wil bestellen, ziet meteen wat op is */
+#blok-rang { order: 3; }
+#kaart { order: 4; }
+#blok-recent { order: 5; }
+#blok-bieren { order: 6; }
+.verloop-blok { order: 7; display: flex; justify-content: center; }
+.voet { order: 8; }
 
 /* Tablet en laptop: twee kolommen. Links teller, verloop en ranglijst; rechts het plan
  * met daaronder de laatste bestellingen en de populairste bieren. Beide kolommen lopen ongeveer even lang. */
@@ -368,9 +378,10 @@ button { font: inherit; color: inherit; }
     display: grid;
     max-width: 1240px;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
-    grid-template-rows: auto auto auto 1fr auto;
+    grid-template-rows: auto auto auto auto 1fr auto;
     grid-template-areas:
       "midden  kaart"
+      "uitv    kaart"
       "verloop kaart"
       "rang    recent"
       "rang    bieren"
@@ -383,6 +394,7 @@ button { font: inherit; color: inherit; }
   #kaart { grid-area: kaart; }
   #blok-rang { grid-area: rang; }
   #blok-bieren { grid-area: bieren; }
+  #blok-uitverkocht { grid-area: uitv; }
   #blok-recent { grid-area: recent; }
   .voet { grid-area: voet; }
 }
@@ -431,7 +443,9 @@ button { font: inherit; color: inherit; }
 
   .blok-kop { font-size: max(20px, 2.5vh); }
   #blok-rang, #blok-bieren { flex: none; }
-  #blok-bieren { order: 3; }   /* onder de ranglijst; de lijst met bestellingen vult de rest */
+  #blok-bieren, #blok-uitverkocht { order: 3; flex: none; }   /* onder de ranglijst; de lijst met bestellingen vult de rest */
+  #uitverkocht li { font-size: max(14px, 1.5vh); }
+  #blok-uitverkocht { max-height: 32vh; overflow: hidden; }   /* ook met tientallen uitverkochte bieren blijft alles op één scherm */
   #ranglijst li, #bieren li { padding-block: .8vh; }
   .rl-naam { flex-direction: row; align-items: baseline; gap: 8px; font-size: max(16px, 1.8vh); }
   .rl-rang, .rl-liter { font-size: max(22px, 2.8vh); }

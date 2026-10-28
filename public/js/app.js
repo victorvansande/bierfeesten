@@ -330,6 +330,14 @@
       : '<li class="leeg">Nog geen bestellingen</li>';
   }
 
+  /* Uitverkochte bieren, zoals de kassa ze doorgeeft: nummer van de bierlijst en naam. */
+  function toonUitverkocht(s) {
+    const lijst = s.uitverkocht || [];
+    $('uitverkocht').innerHTML = lijst.length
+      ? lijst.map(b => `<li title="Uitverkocht sinds ${uurMin(b.sinds)}">${b.nr != null ? `<span class="uv-nr">${html(b.nr)}</span>` : ''}${b.naam ? `<span class="uv-naam">${html(b.naam)}</span>` : ''}<span class="sr-only">, uitverkocht sinds ${uurMin(b.sinds)}</span></li>`).join('')
+      : '<li class="leeg">Alles is nog te bestellen</li>';
+  }
+
   function toonRecent(s) {
     const ul = $('recent');
     const sleutel = r => `${r.ts}-${r.t}-${r.ml}`;
@@ -542,6 +550,7 @@
     toonDoelen(s, eerste);
     toonRanglijst(s);
     toonBieren(s);
+    toonUitverkocht(s);
     toonRecent(s);
     tekenVerloop();
     toonVoet();

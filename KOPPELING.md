@@ -21,6 +21,7 @@ Dit document is voor wie het kassasysteem bouwde. Het beschrijft het enige wat d
 6. **Tapbier van een vat**: hoeveel ml is één glas (33 cl?), en stuurt de kassa dat volume per glas mee?
 7. **Alcoholvrij bier** (11 op de voorlopige lijst): telt dat mee als bier? Dat beslist Victor; de kassa moet het wel kunnen onderscheiden.
 8. **Kan de kassa de naam van het bier meesturen** (`product`)? Dan toont de pagina de populairste bieren. Is die naam geschikt om publiek te tonen, of zijn het interne codes?
+9. **Uitverkochte bieren:** hoe registreert de kassa dat een bier op is, en kan ze dat doorsturen? Liefst met het nummer van de bierlijst en de naam. Beide vormen hieronder werken; kies wat het makkelijkst is.
 
 ## In het kort
 
@@ -86,6 +87,24 @@ De server zet het verschil met zijn eigen stand om in correctieregels. Zo blijft
 | 413 | Meer dan 500 regels in één oproep. |
 | 422 | Alle regels geweigerd. |
 | 5xx | Server tijdelijk weg: later opnieuw versturen, dubbels zijn veilig. |
+
+## Uitverkochte bieren
+
+De pagina toont welke bieren op zijn, met hun nummer van de bierlijst. Twee vormen, via dezelfde `POST /api/kassa` (mag samen met bestellingen in één oproep):
+
+**A. De volledige lijst** van wat nu uitverkocht is. Vervangt de vorige lijst; een lege lijst betekent dat alles weer te bestellen is. Eenvoudigst en veilig om te herhalen (bv. bij elke wijziging, of elke minuut).
+
+```json
+{ "uitverkocht": [ { "nr": 12, "naam": "Tripel" }, { "nr": 41, "naam": "Geuze" } ] }
+```
+
+**B. Losse wijzigingen**, voor een kassa die enkel "zet op uitverkocht" en "weer beschikbaar" kent:
+
+```json
+{ "voorraad": [ { "nr": 12, "naam": "Tripel", "uitverkocht": true }, { "nr": 7, "uitverkocht": false } ] }
+```
+
+Een bier mag ook gewoon een nummer (`12`) of een naam (`"Tripel"`) zijn. Nummer of naam is genoeg; met beide is het duidelijkst voor de bezoekers. Zelfde nummer = zelfde bier. Engelse sleutels (`number`, `name`, `sold_out`) werken ook. Het antwoord bevat `"uitverkocht": <aantal>`. Bij een fout (bv. een regel zonder `uitverkocht: true/false`) verandert er niets en komt er 400 terug.
 
 ## Productcodes (optioneel)
 
