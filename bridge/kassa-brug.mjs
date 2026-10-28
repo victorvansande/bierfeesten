@@ -1,7 +1,9 @@
 /* Kassabrug: een klein programma dat naast het kassasysteem draait en bestellingen
  * doorstuurt naar de live telling. Geen afhankelijkheden, Node 18 of nieuwer.
  *
- * Waarom een brug? Het wifi in een feestzaal valt soms weg. De brug schrijft elke
+ * Waarom een brug? Het kassanetwerk is gesloten, zonder internet. De brug staat met één
+ * aansluiting op dat netwerk (enkel lezen) en met een tweede op internet (eigen 4G, enkel
+ * uitgaand), zonder doorgang tussen beide. Ook die verbinding kan wegvallen. De brug schrijft elke
  * bestelling eerst naar een lokaal wachtrijbestand en stuurt pas daarna door. Valt
  * het internet weg, dan loopt de telling achter maar gaat er niets verloren: zodra
  * de verbinding terug is, gaat alles alsnog door. Dubbel versturen is geen probleem,

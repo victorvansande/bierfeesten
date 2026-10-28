@@ -7,7 +7,7 @@ Dit document is voor wie het kassasysteem bouwde. Het beschrijft het enige wat d
 - **Een bier telt bij de bestelling**, niet bij het afrekenen. De kassa stuurt dus best elke bestelling door op het moment dat ze ingegeven wordt.
 - **Alleen bier telt.** Frisdrank, wijn en andere dranken stuurt de kassa niet door (of de teller moet ze kunnen herkennen, zie vraag 2 hieronder).
 - **Elke bestelling heeft een tafel** (1 t/m 71). Aan de toog wordt niet besteld; alles gaat via de garçons en de kassa.
-- **De kassa heeft internet** in de zaal: rechtstreeks doorsturen naar de teller is de eenvoudigste weg. De brug in `bridge/` is enkel nodig als je liever een wachtrij naast de kassa draait.
+- **De kassa zit op een gesloten netwerk zonder internet.** Voorstel: een brug die alleen leest uit de kassa en alleen naar buiten stuurt, zodat het kassanetwerk gesloten blijft (zie "Gesloten kassanetwerk: de brug" hieronder).
 - **Testmoment: vrijdag**, vóór de opening. Daarvoor bestaat een aparte testeditie (zie onderaan), zodat de echte telling leeg blijft.
 - **Live:** https://bierfeesten.victorvansande.workers.dev. De token (`KASSA_TOKEN`) krijg je van Victor.
 
@@ -116,11 +116,30 @@ PRODUCTEN = '{"PILS25": 250, "PILS33": 330, "SPEC33": 330, "PINT50": 500, "KAN10
 
 Een bestelling `{ "id": "...", "tafel": 5, "product": "PILS33", "aantal": 3 }` telt dan als 990 ml.
 
-## Als het internet in de zaal wegvalt
+## Gesloten kassanetwerk: de brug (voorstel)
 
-`bridge/kassa-brug.mjs` is een kleine brug (Node, geen afhankelijkheden) die naast de kassa kan draaien. Hij schrijft elke bestelling eerst naar een lokaal wachtrijbestand en stuurt daarna door, met herhaalpogingen. Valt het netwerk weg, dan loopt de teller achter, maar gaat er niets verloren. Alleen de functie `leesNieuweBestellingen()` moet ingevuld worden (bv. een query op de kassadatabank met `WHERE id > laatsteId`).
+De kassa hoeft niet op internet. Eén extra toestel (laptop of Raspberry Pi) met twee netwerkaansluitingen:
 
-Kan de kassa zelf HTTP-oproepen doen en heeft ze een eigen wachtrij, dan is de brug overbodig.
+```
+[kassa's] --- gesloten kassanetwerk --- [brug] --- eigen 4G-router --- internet --- teller
+                 (brug leest enkel)                  (enkel uitgaand HTTPS)
+```
+
+- **Leest enkel** uit de kassa: liefst een databankgebruiker met alleen leesrechten, of een exportbestand of logbestand dat de kassa al schrijft.
+- **Stuurt enkel naar buiten**: HTTPS naar `/api/kassa`. Geen open poorten, geen verkeer van internet naar binnen.
+- **Geen doorgang tussen de twee netwerken**: routering (IP forwarding) staat uit en de firewall laat alleen uitgaand verkeer naar de teller toe. De kassa's zelf krijgen dus nooit internet.
+- **De kassa merkt niets** als de brug of het 4G wegvalt. De brug bewaart wat nog niet verstuurd is in een wachtrij op schijf en haalt de achterstand in zodra de verbinding terug is. Dubbel versturen kan geen kwaad (zelfde `id` = genegeerd).
+- **Verbruik**: kleine JSON-berichten, het hele weekend samen enkele tientallen MB.
+
+De brug bestaat al: `bridge/kassa-brug.mjs` (Node 18 of nieuwer, geen afhankelijkheden). Alleen de functie `leesNieuweBestellingen()` moet ingevuld worden, bv. een query op de kassadatabank met `WHERE id > laatsteId`. Uitverkochte bieren kunnen langs dezelfde weg.
+
+Kan de kassa niets laten uitlezen, dan is er nog een laatste mogelijkheid zonder iets aan de kassa te wijzigen: de brug doet zich voor als extra netwerkprinter en leest de bonnen mee. Dat is wel foutgevoeliger (de bontekst moet ontleed worden), dus enkel als het niet anders kan.
+
+Vragen hierover:
+
+- Op welke software en welk besturingssysteem draait de kassa, en waar staan de bestellingen (welke databank, exportbestand, ...)?
+- Mag er een toestel bij op het kassanetwerk dat enkel leest?
+- Is er een 4G-router of andere internetverbinding in de zaal, los van het kassanetwerk?
 
 ## Lezen (voor andere schermen of eigen tools)
 
