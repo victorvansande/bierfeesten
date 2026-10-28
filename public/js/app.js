@@ -330,13 +330,63 @@
       : '<li class="leeg">Nog geen bestellingen</li>';
   }
 
-  /* Uitverkochte bieren, zoals de kassa ze doorgeeft: nummer van de bierlijst en naam. */
+  /* Uitverkochte bieren, zoals de kassa ze doorgeeft: nummer van de bierlijst en naam.
+   * Tegen zondag kan de lijst lang worden: het blok blijft daarom altijd even hoog (zie pasUitverkochtAan). */
+  let uitverkocht = [];
   function toonUitverkocht(s) {
     const lijst = s.uitverkocht || [];
-    $('uitverkocht').innerHTML = lijst.length
-      ? lijst.map(b => `<li title="Uitverkocht sinds ${uurMin(b.sinds)}">${b.nr != null ? `<span class="uv-nr">${html(b.nr)}</span>` : ''}${b.naam ? `<span class="uv-naam">${html(b.naam)}</span>` : ''}<span class="sr-only">, uitverkocht sinds ${uurMin(b.sinds)}</span></li>`).join('')
+    $('uv-aantal').innerHTML = lijst.length ? `(${vast(lijst.length)})` : '';
+    const sleutel = JSON.stringify(lijst.map(b => [b.nr, b.naam]));
+    if (sleutel === toonUitverkocht.sleutel) return;   // ongewijzigd: de rollende lijst niet herstarten
+    toonUitverkocht.sleutel = sleutel;
+    uitverkocht = lijst;
+    const items = lijst.length
+      ? lijst.map(b => `<li>${b.nr != null ? `<span class="uv-nr">${html(b.nr)}</span>` : ''}${b.naam ? `<span class="uv-naam">${html(b.naam)}</span>` : ''}<span class="sr-only">, uitverkocht sinds ${uurMin(b.sinds)}</span></li>`).join('')
       : '<li class="leeg">Alles is nog te bestellen</li>';
+    $('uitverkocht').innerHTML = items;
+    $('uitverkocht-kopie').innerHTML = lijst.length ? items : '';
+    pasUitverkochtAan();
+    if (!$('uv-dialoog').hidden) vulUitverkochtDialoog();
   }
+  /* Hoogstens 3 rijen, ook op de beamer (daar moeten de laatste bestellingen ook nog passen).
+   * Is de lijst langer, dan rolt ze aan ±14 px per seconde (traag genoeg om te lezen). */
+  const UV_GAP = 8;
+  function pasUitverkochtAan() {
+    const venster = $('uv-venster'), lijst = $('uitverkocht');
+    const rij = lijst.firstElementChild?.getBoundingClientRect().height || 30;
+    const rijen = 3;
+    const max = rijen * rij + (rijen - 1) * UV_GAP;
+    venster.style.maxHeight = max + 'px';
+    const hoogte = lijst.getBoundingClientRect().height;
+    const rolt = uitverkocht.length > 0 && hoogte > max + 1;
+    if (rolt) {
+      venster.style.setProperty('--uv-rol', `${-(hoogte + UV_GAP)}px`);
+      venster.style.setProperty('--uv-duur', `${((hoogte + UV_GAP) / 14).toFixed(1)}s`);
+    }
+    venster.classList.toggle('rolt', rolt);
+    $('uv-alle').hidden = !rolt;
+    $('uv-alle').textContent = `Toon alle ${uitverkocht.length}`;
+  }
+  /* Aanraken pauzeert even, zodat je rustig kunt lezen; uit beeld rolt er niets (spaart de batterij). */
+  {
+    const venster = $('uv-venster');
+    let hervat;
+    venster.addEventListener('touchstart', () => { clearTimeout(hervat); venster.classList.add('pauze'); }, { passive: true });
+    venster.addEventListener('touchend', () => { hervat = setTimeout(() => venster.classList.remove('pauze'), 4000); }, { passive: true });
+    new IntersectionObserver(([e]) => venster.classList.toggle('uit-beeld', !e.isIntersecting)).observe(venster);
+    document.fonts?.ready.then(pasUitverkochtAan);   // rijhoogte hangt af van het lettertype
+  }
+  /* "21:14", of "za 21:14" als het niet vandaag was (op zondag is zaterdagavond anders verwarrend). */
+  const sindsTekst = ts => (new Date(ts).toDateString() === new Date().toDateString() ? '' : new Date(ts).toLocaleDateString('nl-BE', { weekday: 'short' }) + ' ') + uurMin(ts);
+  function vulUitverkochtDialoog() {
+    $('uv-uitleg').textContent = uitverkocht.length === 1 ? '1 bier is op.' : `${uitverkocht.length} bieren zijn op, op nummer van de bierlijst.`;
+    $('uv-volledig').innerHTML = uitverkocht.map(b => `<li><span class="uv-v-nr">${b.nr != null ? html(b.nr) : ''}</span><span class="uv-v-naam">${b.naam ? html(b.naam) : 'Bier ' + html(b.nr)}</span><span class="uv-v-sinds">sinds ${sindsTekst(b.sinds)}</span></li>`).join('');
+  }
+  function openUitverkocht() { vulUitverkochtDialoog(); $('uv-dialoog').hidden = false; $('uv-sluit').focus({ preventScroll: true }); }
+  function sluitUitverkocht() { $('uv-dialoog').hidden = true; $('uv-alle').focus({ preventScroll: true }); }
+  $('uv-alle').addEventListener('click', openUitverkocht);
+  $('uv-sluit').addEventListener('click', sluitUitverkocht);
+  $('uv-dialoog').addEventListener('click', e => { if (e.target === $('uv-dialoog')) sluitUitverkocht(); });
 
   function toonRecent(s) {
     const ul = $('recent');
@@ -462,7 +512,7 @@
   $('deel-delen').addEventListener('click', () => navigator.share?.({ title: 'Herentalse Bierfeesten', url: deelUrl() }).catch(() => {}));
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { if (!$('deel').hidden) sluitDeel(); else if (openNr) sluitDetail(); }
+    if (e.key === 'Escape') { if (!$('deel').hidden) sluitDeel(); else if (!$('uv-dialoog').hidden) sluitUitverkocht(); else if (openNr) sluitDetail(); }
     const g = e.target.closest?.('.tafel');
     if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDetail(g.dataset.nr, g); }
     if (beamer && e.key === 'f') document.documentElement.requestFullscreen?.().catch(() => {});
@@ -566,7 +616,7 @@
   }
 
   let herteken;
-  addEventListener('resize', () => { clearTimeout(herteken); herteken = setTimeout(() => { tekenVerloop(); pasRecentAan(); }, 150); });
+  addEventListener('resize', () => { clearTimeout(herteken); herteken = setTimeout(() => { tekenVerloop(); pasRecentAan(); pasUitverkochtAan(); }, 150); });
   mqGsm.addEventListener('change', bouwPlannen);
 
   bouwPlannen();

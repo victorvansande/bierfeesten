@@ -2,10 +2,13 @@
  * bij alles wat op gsm misloopt. 95% van de bezoekers kijkt op gsm, dus dit draait
  * bij elke wijziging (lokaal én in GitHub Actions).
  *
- *   node tools/schermcheck.mjs [basis-url] [map-voor-screenshots]
+ *   node tools/schermcheck.mjs [basis-url] [map-voor-screenshots] [kassa-token]
+ *
+ * De token (standaard uit .dev.vars) is enkel nodig voor de controle met een lange lijst
+ * uitverkochte bieren; die gebruikt een aparte testeditie.
  */
 import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 
 const BASIS = (process.argv[2] || 'http://127.0.0.1:8787').replace(/\/$/, '');
 const MAP = process.argv[3] || 'schermcheck';
@@ -151,6 +154,48 @@ for (const [w, h, naam] of [[375, 812, 'gsm'], [1310, 1000, 'laptop']]) {
   const cls = await p.evaluate(() => window.__cls);
   meld(weg < 6 && cls < 0.001, `traag netwerk, ${naam}: laadscherm weg na ${weg.toFixed(1)} s, zichtbaar verspringen ${cls.toFixed(4)}`);
   await ctx.close();
+}
+
+/* Lange lijst uitverkochte bieren (zondagavond): het blok blijft 3 rijen hoog en rolt,
+ * "Toon alle" toont alles, en op de beamer passen de laatste bestellingen er nog onder. */
+{
+  let token = process.argv[4];
+  try { token ||= readFileSync('.dev.vars', 'utf8').match(/KASSA_TOKEN=(.*)/)?.[1].trim(); } catch {}
+  if (!token) meld(false, 'lange lijst uitverkocht: geen kassa-token (derde argument of .dev.vars)');
+  else {
+    const ed = 'check-uv-' + Date.now();
+    const namen = ['Tripel', 'Kriek', 'Blond extra', 'Bruin', 'Oude geuze', 'Winterbier', 'Abdijbier donker', 'IPA'];
+    const r = await fetch(`${BASIS}/api/kassa?editie=${ed}`, { method: 'POST', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify({
+      uitverkocht: Array.from({ length: 40 }, (_, i) => ({ nr: i * 2 + 1, naam: namen[i % namen.length] })),
+      bestellingen: Array.from({ length: 30 }, (_, i) => ({ id: 'c' + i, tafel: (i % 9) + 1, ml: 330, aantal: (i % 3) + 1, product: namen[i % 4] }))
+    }) });
+    meld(r.ok, `lange lijst uitverkocht: testeditie gevuld (${r.status})`);
+    for (const f of [FORMATEN[0], FORMATEN[5]]) {
+      const ctx = await browser.newContext({ viewport: { width: f.w, height: f.h }, deviceScaleFactor: f.gsm ? 2 : 1, isMobile: !!f.gsm, hasTouch: !!f.gsm });
+      const p = await ctx.newPage();
+      await p.goto(`${BASIS}/?editie=${ed}${f.beamer ? '&beamer' : ''}`);
+      await p.waitForFunction(() => document.getElementById('laden').hidden, null, { timeout: 15000 }).catch(() => {});
+      await p.evaluate(() => document.getElementById('blok-uitverkocht').scrollIntoView({ block: 'center' }));
+      const meet = () => p.evaluate(() => {
+        const v = document.getElementById('uv-venster'), rij = document.querySelector('#uitverkocht li').getBoundingClientRect().height;
+        return { rolt: v.classList.contains('rolt'), hoogte: v.getBoundingClientRect().height, rij, y: new DOMMatrix(getComputedStyle(v.firstElementChild).transform).m42,
+          scroll: document.documentElement.scrollWidth <= innerWidth, recent: [...document.querySelectorAll('#recent li')].filter(l => !l.hidden).length,
+          zijOnder: document.querySelector('.zijkant').getBoundingClientRect().bottom, voetBoven: document.querySelector('.voet').getBoundingClientRect().top };
+      });
+      const a = await meet(); await p.waitForTimeout(1500); const b = await meet();
+      meld(a.rolt && a.hoogte <= 3 * a.rij + 2 * 8 + 1 && b.y < a.y && a.scroll, `${f.naam}: 40 uitverkochte bieren in een venster van 3 rijen (${Math.round(a.hoogte)} px) dat rolt`);
+      if (f.gsm) {
+        await p.click('#uv-alle');
+        const n = await p.evaluate(() => !document.getElementById('uv-dialoog').hidden && document.querySelectorAll('#uv-volledig li').length);
+        meld(n === 40, `${f.naam}: "Toon alle" toont alle 40 uitverkochte bieren (${n})`);
+        await p.screenshot({ path: `${MAP}/gsm-uitverkocht.png` });
+      } else {
+        meld(a.zijOnder <= a.voetBoven && a.recent >= 3, `${f.naam}: met een lange lijst passen nog ${a.recent} laatste bestellingen op het scherm`);
+        await p.screenshot({ path: `${MAP}/beamer-uitverkocht.png` });
+      }
+      await ctx.close();
+    }
+  }
 }
 
 /* Zonder netwerk: de site opent toch, met de laatst gekende stand. (Echte live-pagina, geen ?demo.) */

@@ -128,8 +128,14 @@
       <ol id="bieren"></ol>
     </div>
     <div class="uitverkocht" id="blok-uitverkocht">
-      <h2 class="blok-kop">Uitverkocht</h2>
-      <ul id="uitverkocht"></ul>
+      <h2 class="blok-kop">Uitverkocht <span class="uv-aantal" id="uv-aantal"></span></h2>
+      <div class="uv-venster" id="uv-venster">
+        <div class="uv-band">
+          <ul class="uv-lijst" id="uitverkocht"></ul>
+          <ul class="uv-lijst uv-kopie" id="uitverkocht-kopie" aria-hidden="true"></ul>
+        </div>
+      </div>
+      <button class="uv-alle" id="uv-alle" type="button" aria-haspopup="dialog" hidden>Toon alle</button>
     </div>
     <div class="recent" id="blok-recent">
       <h2 class="blok-kop">Laatste bestellingen</h2>
@@ -167,6 +173,15 @@
       <button type="button" id="deel-kopieer">Kopieer link</button>
       <button type="button" id="deel-delen" hidden>Deel via…</button>
     </div>
+  </div>
+</div>
+
+<div class="deel" id="uv-dialoog" role="dialog" aria-modal="true" aria-labelledby="uv-titel" hidden>
+  <div class="deel-kaart uv-kaart">
+    <button class="sluit" id="uv-sluit" type="button" aria-label="Sluiten">×</button>
+    <h2 id="uv-titel">Uitverkocht</h2>
+    <p id="uv-uitleg"></p>
+    <ol class="uv-volledig" id="uv-volledig"></ol>
   </div>
 </div>
 
