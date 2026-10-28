@@ -23,6 +23,19 @@ const FORMATEN = [
 let fouten = 0;
 const meld = (ok, wat) => { console.log((ok ? 'ok   ' : 'FOUT ') + wat); if (!ok) fouten++; };
 
+/* Icoontjes en manifest: bestaan ze, met het juiste type, en verwijst de pagina ernaar? */
+{
+  const man = await fetch(`${BASIS}/manifest.webmanifest`);
+  const m = man.ok ? await man.json() : {};
+  meld(man.ok && m.name === 'Herentalse Bierfeesten', `manifest geladen (${man.headers.get('content-type')}), naam "${m.name}"`);
+  const doelen = ['any', 'maskable', 'monochrome'].filter(d => (m.icons || []).some(i => i.purpose === d));
+  meld(doelen.length === 3, `manifest bevat iconen voor ${doelen.join(', ')}`);
+  for (const pad of [...(m.icons || []).map(i => i.src), 'img/icoon/apple-touch-icon.png', 'img/icoon/favicon.svg', 'img/icoon/favicon.ico']) {
+    const r = await fetch(`${BASIS}/${pad}`);
+    if (!r.ok) meld(false, `icoon ontbreekt: ${pad} (${r.status})`);
+  }
+}
+
 const browser = await chromium.launch();
 for (const f of FORMATEN) {
   const p = await browser.newPage({ viewport: { width: f.w, height: f.h }, deviceScaleFactor: f.gsm ? 2 : 1, isMobile: !!f.gsm, hasTouch: !!f.gsm });

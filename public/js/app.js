@@ -436,7 +436,7 @@
     catch { getSelection().selectAllChildren($('deel-url')); knop.textContent = 'Geselecteerd, kopieer zelf'; }
     setTimeout(() => { knop.textContent = 'Kopieer link'; }, 2500);
   });
-  $('deel-delen').addEventListener('click', () => navigator.share?.({ title: 'Herentalse Bierfeesten live', url: deelUrl() }).catch(() => {}));
+  $('deel-delen').addEventListener('click', () => navigator.share?.({ title: 'Herentalse Bierfeesten', url: deelUrl() }).catch(() => {}));
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') { if (!$('deel').hidden) sluitDeel(); else if (openNr) sluitDetail(); }

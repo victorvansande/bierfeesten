@@ -13,6 +13,12 @@ Project van Victor (KSA Herentals). Live liters bier per tafel en totaal, gevoed
 - **Stijl is "Stempel"** (geel affichepapier, zwarte inkt, ruwe randen zoals het logo). Andere stijlen zijn bewust geschrapt.
 - Nooit secrets of tokens zelf invullen. Ze staan als GitHub secrets.
 
+## Iconen
+
+- Bron: de ster uit het logo (`tools/bron/ster-masker.png`). Opnieuw maken: `python3 tools/maak-iconen.py` (Pillow + numpy).
+- iOS: glazen zwarte ster op geel (apple-touch-icon, vierkant en ondoorzichtig: iOS rondt zelf af en vult transparantie met zwart). Echte iOS 26 Liquid Glass-lagen bestaan enkel voor native apps; voor een website zit het effect in de afbeelding.
+- Android: maskable (Material, inhoud binnen de veilige zone) + monochrome. Naam: "Herentalse Bierfeesten", kort "Bierfeesten".
+
 ## Online
 
 - Live: https://bierfeesten.victorvansande.workers.dev (Beamer: `?beamer`).

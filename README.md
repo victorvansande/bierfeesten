@@ -26,6 +26,7 @@ kassa ──POST /api/kassa (token)──▶ Cloudflare Worker ──▶ Durable
 - **Plattegrond**: tafelposities uit de vectorlagen van de tafelplan-pdf's. Op groot scherm één plan, tuinzaal links en grote zaal rechts, uitgelijnd op de twee verbindingsdeuren. Op gsm onder elkaar, met de deuren aangeduid. De lege middenzone van de grote zaal wordt smaller getekend, met een breuklijn (`plan_inkorten` in `config.js`).
 - **Tussendoelen**: elke 250 L een feestmoment, het record van vorig jaar (1.000 L) als apart doel.
 - **Beamer**: `https://<domein>/?beamer` (cursor verdwijnt, scherm blijft wakker, `f` = volledig scherm). Alles past op één scherm.
+- **Op het beginscherm**: installeerbaar als app ("Herentalse Bierfeesten", op het beginscherm "Bierfeesten" omdat iOS lange namen afkapt). iOS krijgt een glazen ster in de stijl van iOS 26, Android een maskable Material-icoon (cirkel, druppel of squircle naargelang het toestel) en een monochrome versie voor themakleuren.
 - **Demo** met verzonnen, realistische cijfers: `?demo`. Nooit op de beamer tijdens het feest.
 - **Live voorbeeld op de server** (tijdelijk aan op de hoofdpagina): de editie `demo` verzint zelf bestellingen via een alarm van het Durable Object, zodat iedereen dezelfde cijfers live ziet oplopen. Om de 4 uur begint het opnieuw; zonder kijkers stopt het na een halfuur. Uitzetten: `editie` weghalen uit `public/js/config.js`. Code: `worker/demo.js`.
 
@@ -44,6 +45,8 @@ kassa ──POST /api/kassa (token)──▶ Cloudflare Worker ──▶ Durable
 | `tools/test.mjs` | Integratietest van de backend |
 | `tools/schermcheck.mjs` | Schermcontrole op 360, 375, 430 px, tablet, laptop en beamer |
 | `tools/simuleer.mjs` | Verzonnen kassabestellingen naar een testeditie |
+| `tools/maak-iconen.py` | Maakt favicon en app-iconen uit de ster van het logo (`tools/bron/`) naar `public/img/icoon/` |
+| `public/manifest.webmanifest` | Naam en iconen voor "Zet op beginscherm" (Android en iOS) |
 
 ## Lokaal draaien
 
