@@ -12,6 +12,8 @@ Uitvoer:  public/img/icoon/*
   - maskable-192.png, -512.png Android adaptive icon (Material): vlak, inhoud binnen de veilige zone (80%-cirkel),
                                zodat elke vorm die het toestel kiest (cirkel, druppel, squircle) goed blijft
   - monochroom-512.png         Android 13+ themakleuren: enkel de vorm, transparant
+  - ../delen.png               1200x630, voorbeeld bij een gedeelde link (WhatsApp, Messenger, ...): het logo
+  - ../laadscherm/*.png        iOS-laadschermen per iPhone-formaat: het logo op geel
 """
 from pathlib import Path
 import numpy as np
@@ -19,6 +21,7 @@ from PIL import Image, ImageFilter, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 BRON = ROOT / 'tools' / 'bron' / 'ster-masker.png'
+LOGO = ROOT / 'tools' / 'bron' / 'logo-masker-groot.png'   # het volledige logo op volle resolutie, als masker
 UIT = ROOT / 'public' / 'img' / 'icoon'
 UIT.mkdir(parents=True, exist_ok=True)
 
@@ -190,6 +193,33 @@ def ster_pad(viewbox=100, schaal=0.80, dy=1.0):
     return 'M' + 'L'.join(f'{o + x * f:.1f} {o + dy + y * f:.1f}' for y, x in punten) + 'Z'
 
 
+def logo_op_geel(breedte, hoogte, logo_breedte_deel, dy=0.0):
+    """Het algemene logo in inkt, gecentreerd op geel."""
+    img = Image.new('RGB', (breedte, hoogte), GEEL)
+    logo = Image.open(LOGO).convert('RGBA')
+    lb = round(breedte * logo_breedte_deel)
+    lh = round(logo.height * lb / logo.width)
+    alfa = logo.split()[3].resize((lb, lh), Image.LANCZOS)
+    img.paste(Image.new('RGB', (lb, lh), INKT), ((breedte - lb) // 2, (hoogte - lh) // 2 + round(dy * hoogte)), alfa)
+    return img
+
+
+# iPhone-formaten (CSS-pixels breed x hoog, pixeldichtheid), staand. Zonder passend beeld toont iOS een wit scherm.
+IPHONES = [
+    (440, 956, 3),  # 16 Pro Max, 17 Pro Max
+    (402, 874, 3),  # 16 Pro, 17 Pro, 17
+    (420, 912, 3),  # Air
+    (430, 932, 3),  # 14 Pro Max, 15 Plus, 15 Pro Max, 16 Plus
+    (393, 852, 3),  # 14 Pro, 15, 15 Pro, 16, 16e
+    (428, 926, 3),  # 12 Pro Max, 13 Pro Max, 14 Plus
+    (390, 844, 3),  # 12, 13, 14, 12 Pro, 13 Pro
+    (375, 812, 3),  # X, XS, 11 Pro, 12 mini, 13 mini
+    (414, 896, 3),  # XS Max, 11 Pro Max
+    (414, 896, 2),  # XR, 11
+    (375, 667, 2),  # SE (2e en 3e generatie), 8
+]
+
+
 # ---- Uitvoer ----
 glas = glas_icoon()
 glas.resize((180, 180), Image.LANCZOS).save(UIT / 'apple-touch-icon.png', optimize=True)
@@ -204,5 +234,17 @@ favicon_png(48).save(UIT / 'favicon.ico', sizes=[(16, 16), (32, 32), (48, 48)])
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
     '<rect width="100" height="100" rx="22" fill="#FDDF59"/>'
     f'<path fill="#151110" d="{ster_pad()}"/></svg>\n')
-glas.save(ROOT / 'tools' / 'bron' / 'icoon-1024.png', optimize=True)   # meester, voor als er ooit een native app komt
+glas.save(ROOT / 'tools' / 'bron' / 'icoon-1024.png', optimize=True)
+
+logo_op_geel(1200, 630, 0.74).save(ROOT / 'public' / 'img' / 'delen.png', optimize=True)
+
+laad = ROOT / 'public' / 'img' / 'laadscherm'
+laad.mkdir(exist_ok=True)
+for b, h, d in IPHONES:
+    logo_op_geel(b * d, h * d, 0.78, dy=-0.04).save(laad / f'{b}x{h}@{d}x.png', optimize=True)
+# De bijhorende HTML-regels, om in index.html te plakken als de lijst verandert
+(ROOT / 'tools' / 'bron' / 'laadscherm-links.html').write_text(''.join(
+    f'<link rel="apple-touch-startup-image" href="img/laadscherm/{b}x{h}@{d}x.png" '
+    f'media="(device-width: {b}px) and (device-height: {h}px) and (-webkit-device-pixel-ratio: {d}) and (orientation: portrait)">\n'
+    for b, h, d in IPHONES))   # meester, voor als er ooit een native app komt
 print('Iconen gemaakt in', UIT)

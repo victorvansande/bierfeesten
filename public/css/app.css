@@ -56,6 +56,16 @@ button { font: inherit; color: inherit; }
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 
+.verbinding-band {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 25;
+  background: var(--rood); color: #FFF;
+  font-size: 13px; line-height: 1.35; font-weight: 700; text-align: center;
+  padding-block: 7px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+@media (min-width: 1200px) and (min-aspect-ratio: 4/3) { .verbinding-band { flex: none; } }
+
 /* Koppen van de blokken: Anton in kapitalen met een inktlijn eronder. */
 .blok-kop {
   margin: 0 0 4px;

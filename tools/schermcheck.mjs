@@ -30,7 +30,7 @@ const meld = (ok, wat) => { console.log((ok ? 'ok   ' : 'FOUT ') + wat); if (!ok
   meld(man.ok && m.name === 'Herentalse Bierfeesten', `manifest geladen (${man.headers.get('content-type')}), naam "${m.name}"`);
   const doelen = ['any', 'maskable', 'monochrome'].filter(d => (m.icons || []).some(i => i.purpose === d));
   meld(doelen.length === 3, `manifest bevat iconen voor ${doelen.join(', ')}`);
-  for (const pad of [...(m.icons || []).map(i => i.src), 'img/icoon/apple-touch-icon.png', 'img/icoon/favicon.svg', 'img/icoon/favicon.ico']) {
+  for (const pad of [...(m.icons || []).map(i => i.src), 'img/icoon/apple-touch-icon.png', 'img/icoon/favicon.svg', 'img/icoon/favicon.ico', 'img/delen.png', 'img/laadscherm/393x852@3x.png', 'sw.js']) {
     const r = await fetch(`${BASIS}/${pad}`);
     if (!r.ok) meld(false, `icoon ontbreekt: ${pad} (${r.status})`);
   }
@@ -89,6 +89,23 @@ for (const f of FORMATEN) {
   await p.screenshot({ path: `${MAP}/${f.naam}.png`, fullPage: !f.beamer });
   await p.close();
 }
+/* Zonder netwerk: de site opent toch, met de laatst gekende stand. (Echte live-pagina, geen ?demo.) */
+{
+  const ctx = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2, isMobile: true });
+  const p = await ctx.newPage();
+  await p.goto(`${BASIS}/`);
+  await p.waitForFunction(() => navigator.serviceWorker?.controller || new Promise(r => setTimeout(r, 4000)), null, { timeout: 15000 }).catch(() => {});
+  await p.waitForTimeout(6000);                     // stand bewaren (hoogstens om de 5 s) en service worker installeren
+  await p.reload(); await p.waitForTimeout(2000);   // nu onder controle van de service worker
+  const online = await p.evaluate(() => document.getElementById('teller-getal').dataset.tekst);
+  await ctx.setOffline(true);
+  await p.reload(); await p.waitForTimeout(2500);
+  const r = await p.evaluate(() => ({ teller: document.getElementById('teller-getal').dataset.tekst, status: document.getElementById('status-tekst').textContent, tafels: document.querySelectorAll('.tafel').length, band: !document.getElementById('verbinding-band').hidden && document.getElementById('verbinding-band').getBoundingClientRect().top < 120 }));
+  meld(r.tafels === 71 && r.teller && r.teller !== '0,0' && /stand van/.test(r.status) && r.band, `zonder netwerk: pagina opent met bewaarde stand (${r.teller} L, online was ${online} L), status "${r.status}", band bovenaan ${r.band ? 'zichtbaar' : 'NIET zichtbaar'}`);
+  await p.screenshot({ path: `${MAP}/gsm-offline.png` });
+  await ctx.close();
+}
+
 await browser.close();
 console.log(fouten ? `\n${fouten} controle(s) mislukt. Screenshots in ${MAP}/` : `\nAlle schermcontroles geslaagd. Screenshots in ${MAP}/`);
 process.exit(fouten ? 1 : 0);

@@ -5,7 +5,7 @@
 <title>Herentalse Bierfeesten</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Live bierteller van de Herentalse Bierfeesten: liters per tafel en in totaal.">
+<meta name="description" content="Volg live hoeveel liter bier er al gedronken is op de Herentalse Bierfeesten, per tafel en in totaal.">
 <meta name="theme-color" content="#FDDF59">
 <!-- Icoontjes: gemaakt met tools/maak-iconen.py uit de ster van het logo -->
 <link rel="icon" href="img/icoon/favicon.svg" type="image/svg+xml">
@@ -18,6 +18,30 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<!-- iOS-laadscherm bij openen vanaf het beginscherm: het logo op geel, per iPhone-formaat (tools/maak-iconen.py) -->
+<link rel="apple-touch-startup-image" href="img/laadscherm/440x956@3x.png" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/laadscherm/402x874@3x.png" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/laadscherm/420x912@3x.png" media="(device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/laadscherm/430x932@3x.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/laadscherm/393x852@3x.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/laadscherm/428x926@3x.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/laadscherm/390x844@3x.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/laadscherm/375x812@3x.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/laadscherm/414x896@3x.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/laadscherm/414x896@2x.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/laadscherm/375x667@2x.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+<!-- Voorbeeld bij een gedeelde link (WhatsApp, Messenger, ...). Deelplatformen vragen een volledig adres. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Herentalse Bierfeesten">
+<meta property="og:title" content="Herentalse Bierfeesten">
+<meta property="og:description" content="Volg live hoeveel liter bier er al gedronken is, per tafel en in totaal.">
+<meta property="og:url" content="https://bierfeesten.victorvansande.workers.dev/">
+<meta property="og:image" content="https://bierfeesten.victorvansande.workers.dev/img/delen.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Logo van de Herentalse Bierfeesten">
+<meta property="og:locale" content="nl_BE">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Courier+Prime:wght@400;700&display=swap">
@@ -42,6 +66,8 @@
 <div class="demo-band" id="demo-band" hidden>
   <span><b>Voorbeeld</b> met verzonnen cijfers. De echte telling start zodra de kassa gekoppeld is.</span>
 </div>
+
+<div class="verbinding-band" id="verbinding-band" role="status" hidden></div>
 
 <main class="scherm" id="scherm">
 

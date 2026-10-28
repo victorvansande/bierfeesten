@@ -446,9 +446,33 @@
   });
 
   /* ---- 9. Status, klok, beamer en start ---- */
+  /* Zonder verbinding blijft de laatst gekende stand staan, met het uur erbij. */
   function onStatus(staat, tekst) {
+    if (laatsteStand && staat === 'weg') tekst = `Geen verbinding · stand van ${uurMin(laatsteStand.server_tijd)}`;
+    if (laatsteStand && staat === 'verbinden' && uitCache) tekst = `Verbinden… · stand van ${uurMin(laatsteStand.server_tijd)}`;
     $('status').dataset.staat = staat;
     $('status-tekst').textContent = tekst;
+    /* Op gsm staat de voettekst ver weg: een wegvallende verbinding krijgt bovenaan een eigen band. */
+    const band = $('verbinding-band');
+    band.hidden = staat !== 'weg';
+    if (staat === 'weg') band.textContent = laatsteStand
+      ? `Geen verbinding. Je ziet de stand van ${uurMin(laatsteStand.server_tijd)}; de teller loopt verder zodra het netwerk terug is.`
+      : 'Geen verbinding met de telling. Opnieuw proberen…';
+  }
+
+  /* ---- Laatste stand bewaren op het toestel ----
+   * Zo toont de pagina meteen iets bij het openen, ook als het netwerk in de zaal hapert
+   * (de pagina zelf komt dan uit de service worker, sw.js). Enkel echte live standen, nooit de demo in de browser. */
+  const gevraagdeEditie = q.get('editie') || cfg.editie || 'standaard';
+  const BEWAARSLEUTEL = 'bf-stand:' + gevraagdeEditie;
+  let laatstBewaard = 0;
+  function bewaarStand(s, vanToestel) {
+    if (vanToestel || cfg.bron === 'demo' || Date.now() - laatstBewaard < 5000) return;
+    laatstBewaard = Date.now();
+    try { localStorage.setItem(BEWAARSLEUTEL, JSON.stringify(s)); } catch {}
+  }
+  function bewaardeStand() {
+    try { return JSON.parse(localStorage.getItem(BEWAARSLEUTEL)); } catch { return null; }
   }
   function toonVoet() {
     if (!laatsteStand?.bestellingen) return;
@@ -470,9 +494,14 @@
     band.hidden = false;
   }
 
-  function onStand(s) {
-    const eerste = !laatsteStand;
+  /* uitCache: de getoonde stand komt van het toestel. De eerste echte stand daarna telt als "eerste":
+   * geen feestmoment voor een tussendoel dat al lang gehaald was, geen knipperende tafels. */
+  let uitCache = false;
+  function onStand(s, vanToestel = false) {
+    const eerste = !laatsteStand || uitCache;
+    uitCache = vanToestel;
     laatsteStand = s;
+    bewaarStand(s, vanToestel);
     toonDemoBand(s);
     tekenTeller(s.totaal_ml, eerste);
     toonTafels(s, eerste);
@@ -504,6 +533,13 @@
     $('demo-band').hidden = false;
     new BRON.DemoBron(onStand, onStatus).start();
   } else {
+    const bewaard = bewaardeStand();
+    if (bewaard?.tafels) onStand(bewaard, true);
     new BRON.LiveBron(cfg.api, onStand, onStatus).start();
+  }
+
+  /* Service worker: enkel op een echte site (niet in een voorbeeldomgeving zonder eigen domein). */
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   }
 })();
