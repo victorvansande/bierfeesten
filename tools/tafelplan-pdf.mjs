@@ -86,14 +86,14 @@ function samen() {
   muur += `M${tz.breedte + S.muur / 2} ${y}V${ty + tz.hoogte}`;
   const breedte = gx + maakFx(gz).breedte, hoogte = Math.max(gz.hoogte + gy, tz.hoogte + ty);
   return {
-    viewBox: `-4 -34 ${breedte + 8} ${hoogte + 38}`,
+    viewBox: `-4 -34 ${breedte + 20} ${hoogte + 38}`,   // rechts extra plaats voor het label "kinderhoek" buiten de muur
     inhoud: zaal(tz, tx, ty)
       + `<path class="tussenmuur" d="${muur}" stroke-width="${S.muur}"/>`
       + S.doorgangen.map(([van, tot]) => `<path class="doorgang" d="M${tz.breedte - 6} ${(van + tot) / 2}H${gx + 6}"/>`).join('')
       + zaal(gz, gx, gy)
   };
 }
-const apart = z => ({ viewBox: `-4 -34 ${maakFx(z).breedte + 8} ${z.hoogte + 38}`, inhoud: zaal(z, 0, 0) });
+const apart = z => ({ viewBox: `-4 -34 ${maakFx(z).breedte + (z.id === 'grote-zaal' ? 20 : 8)} ${z.hoogte + 38}`, inhoud: zaal(z, 0, 0) });
 
 /* Per pagina de stand van het papier die de plattegrond het grootst maakt. */
 const A4 = [297, 210], MARGE = 7;
@@ -108,6 +108,7 @@ function html(p) {
   const [pw, ph] = p.liggend ? A4 : [A4[1], A4[0]];
   return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><style>
   @font-face { font-family: Anton; src: url(${font('anton-400.woff2')}); }
+  @font-face { font-family: 'Courier Prime'; font-weight: 700; src: url(${font('courier-prime-700.woff2')}); }
   @page { size: ${pw}mm ${ph}mm; margin: 0; }
   * { box-sizing: border-box; }
   html, body { margin: 0; width: ${pw}mm; height: ${ph}mm; }
@@ -124,6 +125,7 @@ function html(p) {
   .el-deur { fill: none; stroke: #151110; stroke-width: 1.5; stroke-dasharray: 3 3; opacity: .8; }
   .el-label { font-family: Anton, Impact, sans-serif; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; fill: #FDDF59; text-anchor: middle; dominant-baseline: central; }
   .el-label-scherm { font-size: 9px; }
+  .el-label-deur { font-family: 'Courier Prime', monospace; font-weight: 700; font-size: 11px; fill: #C23B22; text-transform: none; letter-spacing: .04em; }
   .tussenmuur { fill: none; stroke: #151110; }
   .doorgang { fill: none; stroke: #C23B22; stroke-width: 2; stroke-dasharray: 3 3; }
   .zaal-naam { font-family: Anton, Impact, sans-serif; font-size: 22px; letter-spacing: .04em; text-transform: uppercase; fill: #151110; }

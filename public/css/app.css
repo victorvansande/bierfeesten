@@ -192,6 +192,7 @@ button { font: inherit; color: inherit; }
 .el-deur { fill: none; stroke: var(--inkt); stroke-width: 1.5; stroke-dasharray: 3 3; opacity: .8; }
 .el-label { font: 400 15px var(--f-kop); fill: var(--geel); text-transform: uppercase; letter-spacing: .08em; pointer-events: none; }
 .el-label-scherm { font-size: 9px; }
+.el-label-deur { font: 700 10px var(--f-tekst); fill: var(--rood); text-transform: none; letter-spacing: .04em; }   /* zoals de labels van de verbindingsdeuren */
 
 /* Een tafel "vult" zich met inkt naargelang de liters; de tekst wisselt mee van kleur. */
 .tafel { cursor: pointer; outline: none; }

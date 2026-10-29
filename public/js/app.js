@@ -136,7 +136,7 @@
       el('path', { class: 'tussenmuur', d, 'stroke-width': S.muur }, svg);
       for (const [van, tot] of S.doorgangen) el('path', { class: 'doorgang', d: `M${bT - 4} ${(van + tot) / 2}H${gx + 4}` }, svg);
       const bG = tekenZaal(gz, el('g', { transform: `translate(${gx} ${gy})` }, svg), cfg.plan_inkorten);
-      svg.setAttribute('viewBox', `${-m} ${-kop} ${gx + bG + 2 * m} ${Math.max(gz.hoogte + gy, tz.hoogte + ty) + kop + m}`);
+      svg.setAttribute('viewBox', `${-m} ${-kop} ${gx + bG + 2 * m + 6} ${Math.max(gz.hoogte + gy, tz.hoogte + ty) + kop + m}`);   // + 6: label "kinderhoek" buiten de rechtermuur
       svgs.push(svg);
     } else {
       for (const id of ['grote-zaal', 'tuinzaal']) {

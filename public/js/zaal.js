@@ -46,7 +46,10 @@ window.ZAAL = {
         { soort: 'muur', pad: 'M0.4 503.5L80.5 515.1' },
         { soort: 'deur', pad: 'M0 206.4A38.4 38.4 0 0 1 38.4 244.8H0' },
         { soort: 'deur', pad: 'M0 521.6A38.4 38.4 0 0 1 38.4 560H0' },
-        { soort: 'deur', pad: 'M594 580.9A38.4 38.4 0 0 0 555.6 619.3H594' }
+        { soort: 'deur', pad: 'M594 580.9A38.4 38.4 0 0 0 555.6 619.3H594' },
+        /* Deur in de rechtermuur tussen tafel 3 en tafel 2 (draait open in de vrije ruimte naast tafel 2),
+         * naar de kinderhoek. Het label staat net buiten de muur, zoals de labels van de verbindingsdeuren. */
+        { soort: 'deur', pad: 'M594 755A32 32 0 0 0 562 787H594', label: 'kinderhoek', labelPos: [604, 771], draai: 90 }
       ]
     },
     {
