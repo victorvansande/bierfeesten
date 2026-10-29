@@ -49,6 +49,7 @@ kassa ──POST /api/kassa (token)──▶ Cloudflare Worker ──▶ Durable
 | `tools/test.mjs` | Integratietest van de backend |
 | `tools/schermcheck.mjs` | Schermcontrole op 360, 375, 430 px, tablet, laptop en beamer |
 | `tools/simuleer.mjs` | Verzonnen kassabestellingen naar een testeditie |
+| `tools/tafelplan-pdf.mjs` | Afdrukbaar tafelplan, A4, 3 pagina's: beide zalen, tuinzaal, grote zaal (`node tools/tafelplan-pdf.mjs tafelplan.pdf`) |
 | `tools/maak-iconen.py` | Maakt favicon en app-iconen uit de ster van het logo (`tools/bron/`) naar `public/img/icoon/` |
 | `public/fonts/` | Anton en Courier Prime (SIL Open Font License), zelf meegeleverd: sneller, offline bruikbaar, geen gegevens naar Google |
 | `public/sw.js` | Service worker: de site opent ook zonder netwerk (bij een wijziging van de bestandslijst: `VERSIE` ophogen) |
