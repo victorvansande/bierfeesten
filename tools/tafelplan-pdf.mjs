@@ -1,7 +1,9 @@
 /* Afdrukbaar tafelplan (A4, 3 pagina's) in de stijl van de site (Stempel: geel papier, zwarte inkt):
- *   1. beide zalen naast elkaar zoals in het echt (liggend)
- *   2. enkel de tuinzaal (staand)
- *   3. enkel de grote zaal (staand)
+ *   1. beide zalen naast elkaar zoals in het echt
+ *   2. enkel de tuinzaal
+ *   3. enkel de grote zaal
+ * Per pagina kiest het script liggend of staand, naargelang wat de plattegrond het grootst maakt.
+ * De middenzone van de grote zaal is smaller getekend dan op de originele tekening, zoals op de site.
  * Elke pagina vult het papier zo goed mogelijk, met de tafelnummers zo groot als de tafels toelaten.
  *
  * Gebruik:  node tools/tafelplan-pdf.mjs [uitvoer.pdf]
@@ -32,18 +34,43 @@ const alleTafels = ZAAL.zalen.flatMap(z => Object.entries(z.tafels));
 const korte = Math.min(...alleTafels.map(([, [, , w, h]]) => Math.min(w, h)));
 const FS = Math.floor(Math.min(korte * 0.80, (korte * 0.88) / (0.5 * 2)));   // 2 cijfers moeten in de smalle kant passen
 
+/* De lege middenzone van de grote zaal is in het echt smaller dan op de originele tekening:
+ * zoals op de site (BREUK in public/js/app.js) wordt die zone smaller getekend. Tafels behouden
+ * hun maat en schuiven mee met hun midden; paden worden horizontaal herschaald. */
+const BREUK = { van: 125, tot: 410, nieuw: 64 };
+function maakFx(z) {
+  if (z.id !== 'grote-zaal') return { fx: x => x, breedte: z.breedte };
+  const f = BREUK.nieuw / (BREUK.tot - BREUK.van);
+  const fx = x => x <= BREUK.van ? x : x >= BREUK.tot ? x - (BREUK.tot - BREUK.van) + BREUK.nieuw : BREUK.van + (x - BREUK.van) * f;
+  return { fx, breedte: fx(z.breedte) };
+}
+/* Pad met absolute commando's (M L H V A Z) horizontaal herschalen (zelfde als padFx op de site). */
+function padFx(d, fx) {
+  let uit = '', cmd = '', arg = 0;
+  for (const t of d.match(/[MLHVAZ]|-?[\d.]+/g)) {
+    if (/[A-Z]/.test(t)) { cmd = t; arg = 0; uit += t; continue; }
+    let n = parseFloat(t);
+    if (((cmd === 'M' || cmd === 'L') && arg % 2 === 0) || cmd === 'H' || (cmd === 'A' && arg % 7 === 5)) n = fx(n);
+    uit += (arg ? ' ' : '') + Math.round(n * 10) / 10;
+    arg++;
+  }
+  return uit;
+}
+
 function zaal(z, ox, oy) {
+  const { fx, breedte } = maakFx(z);
   let s = `<g transform="translate(${ox} ${oy})">`;
-  s += `<rect class="vloer" width="${z.breedte}" height="${z.hoogte}" rx="2"/>`;
+  s += `<rect class="vloer" width="${breedte}" height="${z.hoogte}" rx="2"/>`;
   for (const e of z.elementen) {
-    s += `<path class="el el-${e.soort}" d="${e.pad}"/>`;
+    s += `<path class="el el-${e.soort}" d="${padFx(e.pad, fx)}"/>`;
     if (e.label) {
-      const x = e.labelBereik ? (e.labelBereik[0] + e.labelBereik[1]) / 2 : e.labelPos[0], y = e.labelPos[1];
+      const x = e.labelBereik ? (fx(e.labelBereik[0]) + fx(e.labelBereik[1])) / 2 : fx(e.labelPos[0]), y = e.labelPos[1];
       s += `<text class="el-label el-label-${e.soort}" x="${x}" y="${y}"${e.draai ? ` transform="rotate(${e.draai} ${x} ${y})"` : ''}>${e.label}</text>`;
     }
   }
   s += `<text class="zaal-naam" x="0" y="-10">${z.naam}</text>`;
-  for (const [nr, [x, y, w, h]] of Object.entries(z.tafels)) {
+  for (const [nr, [x0, y, w, h]] of Object.entries(z.tafels)) {
+    const x = fx(x0 + w / 2) - w / 2;
     s += `<rect class="tafel" x="${x}" y="${y}" width="${w}" height="${h}"/>`;
     s += `<text class="nr" x="${x + w / 2}" y="${y + h / 2}" font-size="${FS}">${nr}</text>`;
   }
@@ -57,7 +84,7 @@ function samen() {
   let muur = '', y = ty;
   for (const [van, tot] of S.doorgangen) { muur += `M${tz.breedte + S.muur / 2} ${y}V${van}`; y = tot; }
   muur += `M${tz.breedte + S.muur / 2} ${y}V${ty + tz.hoogte}`;
-  const breedte = gx + gz.breedte, hoogte = Math.max(gz.hoogte + gy, tz.hoogte + ty);
+  const breedte = gx + maakFx(gz).breedte, hoogte = Math.max(gz.hoogte + gy, tz.hoogte + ty);
   return {
     viewBox: `-4 -34 ${breedte + 8} ${hoogte + 38}`,
     inhoud: zaal(tz, tx, ty)
@@ -66,7 +93,7 @@ function samen() {
       + zaal(gz, gx, gy)
   };
 }
-const apart = z => ({ viewBox: `-4 -34 ${z.breedte + 8} ${z.hoogte + 38}`, inhoud: zaal(z, 0, 0) });
+const apart = z => ({ viewBox: `-4 -34 ${maakFx(z).breedte + 8} ${z.hoogte + 38}`, inhoud: zaal(z, 0, 0) });
 
 /* Per pagina de stand van het papier die de plattegrond het grootst maakt. */
 const A4 = [297, 210], MARGE = 7;
