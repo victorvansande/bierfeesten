@@ -14,7 +14,7 @@
  * De editie met de naam DEMO_EDITIE is een live voorbeeld met verzonnen bestellingen (demo.js).
  */
 
-import { DEMO_VERSIE, RESET_MS, STIL_MS, alsWeekend, demoUitverkocht, beginstand, bestelling, tussenIn, volgendeTussentijd } from './demo.js';
+import { DEMO_VERSIE, RESET_MS, RESET_SNEL_MS, STIL_MS, alsWeekend, demoUitverkocht, beginstand, bestelling, tussenIn, volgendeTussentijd } from './demo.js';
 
 const MAX_BATCH = 500;
 const MAX_ML_PER_STUK = 5000;     // 5 L: alles daarboven is bijna zeker een tikfout
@@ -156,7 +156,7 @@ export class Telling {
     const s = {
       v: 1,
       editie: this.editie || this.env.EDITIE,
-      ...(this.isDemo() ? (this.isStil() ? { demo: true, demo_stil: true } : { demo: true, demo_reset_ms: RESET_MS }) : {}),
+      ...(this.isDemo() ? (this.isStil() ? { demo: true, demo_stil: true } : { demo: true, demo_reset_ms: this.resetMs() }) : {}),
       totaal_ml: this.totaal,
       zonder_tafel_ml: this.zonderTafel,
       bestellingen: this.aantal,
@@ -220,6 +220,13 @@ export class Telling {
     return !!this.env.DEMO_EDITIE && this.editie === this.env.DEMO_EDITIE;
   }
   /* DEMO_STIL = "1": het voorbeeld verzint niets meer en begint niet opnieuw; de laatste stand blijft staan. */
+  /* DEMO_SNEL = "1": veel sneller bestellingen, om de werking te tonen (en elk uur opnieuw). */
+  isSnel() {
+    return this.isDemo() && this.env.DEMO_SNEL === '1';
+  }
+  resetMs() {
+    return this.isSnel() ? RESET_SNEL_MS : RESET_MS;
+  }
   isStil() {
     return this.isDemo() && this.env.DEMO_STIL === '1';
   }
@@ -237,7 +244,7 @@ export class Telling {
       return;
     }
     await this.demoBij(false);
-    if (await this.ctx.storage.getAlarm() == null) await this.ctx.storage.setAlarm(Date.now() + volgendeTussentijd());
+    if (await this.ctx.storage.getAlarm() == null) await this.ctx.storage.setAlarm(Date.now() + volgendeTussentijd(this.isSnel()));
   }
 
   async alarm() {
@@ -246,7 +253,7 @@ export class Telling {
     /* Niemand meer aan het kijken: stoppen. De volgende kijker wekt het voorbeeld weer. */
     if (!kijkers && Date.now() - (this.laatsteKijker || 0) > STIL_MS) return;
     await this.demoBij(true);
-    await this.ctx.storage.setAlarm(Date.now() + volgendeTussentijd());
+    await this.ctx.storage.setAlarm(Date.now() + volgendeTussentijd(this.isSnel()));
   }
 
   /* Het voorbeeld bijwerken:
@@ -256,7 +263,7 @@ export class Telling {
   async demoBij(vanAlarm) {
     const nu = Date.now();
     const start = await this.ctx.storage.get('demo_start');
-    if (!start || nu - start > RESET_MS || (await this.ctx.storage.get('demo_versie')) !== DEMO_VERSIE) {
+    if (!start || nu - start > this.resetMs() || (await this.ctx.storage.get('demo_versie')) !== DEMO_VERSIE) {
       this.ctx.storage.transactionSync(() => this.sql.exec('DELETE FROM bestelling'));
       this.herbereken();
       this.verwerk(beginstand(nu), [], nu);

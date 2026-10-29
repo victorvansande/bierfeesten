@@ -16,8 +16,10 @@
  */
 
 export const RESET_MS = 4 * 3600 * 1000;
+/* Snel voorbeeld (DEMO_SNEL = "1"): om de werking te tonen. Elk uur opnieuw, zodat de cijfers niet absurd hoog oplopen. */
+export const RESET_SNEL_MS = 3600 * 1000;
 /* Ophogen als het formaat van de verzonnen bestellingen verandert: het voorbeeld begint dan meteen opnieuw. */
-export const DEMO_VERSIE = 2;
+export const DEMO_VERSIE = 3;
 const STIL_MS = 30 * 60 * 1000;          // zonder kijkers stoppen na een halfuur
 const GEM_TUSSENTIJD_MS = 35 * 1000;     // gemiddeld één bestelling per 35 s
 
@@ -81,7 +83,9 @@ export function tussenIn(van, tot) {
 }
 
 /* Willekeurige tussentijd rond 35 s (exponentieel verdeeld, maar nooit korter dan 5 s). */
-export function volgendeTussentijd() {
+export function volgendeTussentijd(snel = false) {
+  /* Snel: gemiddeld elke 4 s (minstens 1,5 s). Het aanvullen van een stille periode (tussenIn) blijft op het gewone tempo. */
+  if (snel) return Math.max(1500, Math.round(-Math.log(1 - Math.random()) * 4000));
   return Math.max(5000, Math.round(-Math.log(1 - Math.random()) * GEM_TUSSENTIJD_MS));
 }
 

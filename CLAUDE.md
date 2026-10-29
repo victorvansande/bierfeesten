@@ -46,7 +46,7 @@ Project van Victor (KSA Herentals). Live liters bier per tafel en totaal, gevoed
 
 ## Open punten (Victor herinneren)
 
-- **Voorbeeld staat op de hoofdpagina, stilgelegd** op Victors vraag (`editie: 'demo'` in `public/js/config.js`, `DEMO_STIL = "1"` in `wrangler.toml`: geen nieuwe verzonnen bestellingen, vaste stand, tijdstippen verschoven naar nu; code in `worker/demo.js` en `stand()` in `worker/index.js`). Vóór het testmoment met de kassa en zeker vóór het feest: `editie` uit config.js halen, zodat de hoofdpagina de echte telling toont.
+- **Voorbeeld staat op de hoofdpagina en telt snel** op Victors vraag, om de werking te tonen (`editie: 'demo'` in `public/js/config.js`, `DEMO_SNEL = "1"` in `wrangler.toml`: gemiddeld elke 4 s een bestelling, elk uur opnieuw). Stilleggen kan met `DEMO_STIL = "1"` (vaste stand, tijdstippen verschoven naar nu). Code in `worker/demo.js` en `worker/index.js`. Vóór het testmoment met de kassa en zeker vóór het feest: `editie` uit config.js halen, zodat de hoofdpagina de echte telling toont.
 
 - Precies aantal liter van vorig jaar.
 - Frisdrank en wijn: nu alleen bier; later eventueel filteren of apart tonen. Victor wil hier later op terugkomen.
