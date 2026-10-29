@@ -1,4 +1,4 @@
-/* Afdrukbaar tafelplan (A4, 3 pagina's), zwart op wit, zuinig voor de printer:
+/* Afdrukbaar tafelplan (A4, 3 pagina's) in de stijl van de site (Stempel: geel papier, zwarte inkt):
  *   1. beide zalen naast elkaar zoals in het echt (liggend)
  *   2. enkel de tuinzaal (staand)
  *   3. enkel de grote zaal (staand)
@@ -86,19 +86,28 @@ function html(p) {
   html, body { margin: 0; width: ${pw}mm; height: ${ph}mm; }
   body { padding: ${MARGE}mm; }
   svg { display: block; width: 100%; height: 100%; }
-  .vloer { fill: #fff; stroke: #151110; stroke-width: 3; }
-  .tafel { fill: #fff; stroke: #151110; stroke-width: 2.4; }
+  /* Stijl "Stempel" zoals de site: geel affichepapier, zwarte inkt, ruwe randen */
+  html, body { background: #FDDF59; }
+  .vloer { fill: #FFE88A; stroke: #151110; stroke-width: 3; }
+  .tafel { fill: #FFF4C7; stroke: #151110; stroke-width: 2.4; }
   .nr { font-family: Anton, Impact, sans-serif; fill: #151110; text-anchor: middle; dominant-baseline: central; }
-  .el-toog, .el-kassa, .el-scherm, .el-podium { fill: #d6d3cf; stroke: #151110; stroke-width: 1.2; }
+  .el-toog, .el-kassa, .el-scherm, .el-podium { fill: #151110; }
+  .el-kassa { stroke: #FFE88A; stroke-width: 2; }
   .el-muur { fill: none; stroke: #151110; stroke-width: 3.5; stroke-linecap: round; }
-  .el-deur { fill: none; stroke: #151110; stroke-width: 1.3; stroke-dasharray: 3 3; }
-  .el-label { font-family: Anton, Impact, sans-serif; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; fill: #151110; text-anchor: middle; dominant-baseline: central; }
+  .el-deur { fill: none; stroke: #151110; stroke-width: 1.5; stroke-dasharray: 3 3; opacity: .8; }
+  .el-label { font-family: Anton, Impact, sans-serif; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; fill: #FDDF59; text-anchor: middle; dominant-baseline: central; }
   .el-label-scherm { font-size: 9px; }
   .tussenmuur { fill: none; stroke: #151110; }
-  .doorgang { fill: none; stroke: #151110; stroke-width: 1.5; stroke-dasharray: 3 3; }
+  .doorgang { fill: none; stroke: #C23B22; stroke-width: 2; stroke-dasharray: 3 3; }
   .zaal-naam { font-family: Anton, Impact, sans-serif; font-size: 22px; letter-spacing: .04em; text-transform: uppercase; fill: #151110; }
+  .vloer, .el, .tafel, .tussenmuur, .zaal-naam { filter: url(#ruw); }
 </style></head><body>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="${p.viewBox}" preserveAspectRatio="xMidYMid meet">${p.inhoud}</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="${p.viewBox}" preserveAspectRatio="xMidYMid meet">
+  <defs><filter id="ruw" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="ruis"/>
+    <feDisplacementMap in="SourceGraphic" in2="ruis" scale="3.2"/>
+  </filter></defs>
+  ${p.inhoud}</svg>
 </body></html>`;
 }
 
